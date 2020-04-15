@@ -87,7 +87,7 @@ for sid in tqdm(sids):
             current_time_txt = datetime.datetime.strftime(current_time, '%Y-%m-%d %H-%M-%S')
         
             # define output path
-            save_path = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/drug_change_points/%s/drug_changepoint_%s_%s.png'%(Dnames[di], sid, current_time_txt)
+            save_path = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/drug_change_points/%s/drug_changepoint_%s_%s.png'%(dn, sid, current_time_txt)
             # if output path exists, go to next loop
             #if os.path.exists(save_path):
             #    continue
@@ -100,10 +100,10 @@ for sid in tqdm(sids):
             end = min(len(this_drug), ci+total_window_size)
             
             artifact = artifact_indicator[start:end]
-            spec = spec[start:end]
-            if np.all(np.isnan(spec[:ci-start])):
+            spec_ = spec[start:end]
+            if np.all(np.isnan(spec_[:ci-start])):
                 continue   # if no EEG at all (gap) before drug change point, ignore
-            if np.all(np.isnan(spec[ci-start:])):
+            if np.all(np.isnan(spec_[ci-start:])):
                 continue   # if no EEG at all (gap) after drug change point, ignore
             human_label_ = human_label[start:end]
             #nanids = np.all(np.isnan(res['iic'][start:end]), axis=1)
@@ -167,17 +167,17 @@ for sid in tqdm(sids):
             # ax1 is spectrogram
             
             ax1 = fig.add_subplot(gs[0])
-            ax1.imshow(spec.T, aspect='auto', origin='lower', cmap='jet',
+            ax1.imshow(spec_.T, aspect='auto', origin='lower', cmap='jet',
                        vmin=vmin, vmax=vmax,
                        extent=(start, end, freq.min(), freq.max()))
             ax1.set_ylabel('Hz')
             
             # plot artifact indicator
             cc = 0
-            for k,l in groupby(artifact_indicator):
+            for k,l in groupby(artifact):
                 ll = len(list(l))
                 if k==1:
-                    ax1.plot([cc, cc+ll], [freq.max()+1.5]*2, lw=5, c='k')
+                    ax1.plot([cc+start, cc+ll+start], [freq.max()+1.5]*2, lw=5, c='k')
                 cc += ll
                 
             ax1.set_xticks(xticks)
@@ -218,7 +218,7 @@ for sid in tqdm(sids):
                 if np.nanmin(sz_burden)==np.nanmax(sz_burden)==np.nanmin(iic_burden)==np.nanmax(iic_burden):
                     ax2.set_ylim([np.nanmin(sz_burden)-1, np.nanmin(sz_burden)+1])
                 else:
-                    ax2.set_ylim([-1,101])
+                    ax2.set_ylim([-5,105])
                 #seaborn.despine()
             
             # ax3 is spike rate
@@ -245,7 +245,7 @@ for sid in tqdm(sids):
                 if np.nanmin(spike_rate)==np.nanmax(spike_rate):
                     ax3.set_ylim([np.nanmin(spike_rate)-1, np.nanmin(spike_rate)+1])
                 else:
-                    ax3.set_ylim([-1,61])
+                    ax3.set_ylim([-2,62])
                 ax3.set_xticklabels([])
                 #seaborn.despine()
 

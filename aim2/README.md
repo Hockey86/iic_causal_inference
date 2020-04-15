@@ -1,1 +1,1 @@
-# Aim 2: find optimal drug policy
+# Aim 2: find optimal treatment policy
