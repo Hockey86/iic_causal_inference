@@ -11,12 +11,24 @@ from tqdm import tqdm
 if __name__=='__main__':
             
     sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
-       'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
-       'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
-       'sid988', 'sid1016', 'sid1025', 'sid1034', 'sid1038', 'sid1039',
-       'sid1055', 'sid1056', 'sid1063', 'sid1337', 'sid1897', 'sid1913',
-       'sid1915', 'sid1916', 'sid1917', 'sid1926', 'sid1928', 'sid1956',
-       'sid1966']
+        'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
+        'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
+        'sid988', 'sid1016', 'sid1025', 'sid1034', 'sid1038', 'sid1039',
+        'sid1055', 'sid1056', 'sid1063', 'sid1337', 'sid1897', 'sid1913',
+        'sid1915', 'sid1916', 'sid1917', 'sid1926', 'sid1928', 'sid1956',
+        'sid1966']+\
+       ['sid2', 'sid23', 'sid45', 'sid77', 'sid91', 'sid741', 'sid821', 'sid832', 'sid848',
+        'sid8', 'sid24', 'sid54', 'sid82', 'sid92', 'sid771', 'sid822', 'sid833', 'sid849',
+        'sid11', 'sid28', 'sid57', 'sid84', 'sid97', 'sid801', 'sid823', 'sid834', 'sid852',
+        'sid13', 'sid30', 'sid61', 'sid88', 'sid734', 'sid808', 'sid824', 'sid837', 'sid856',
+        'sid17', 'sid38', 'sid69', 'sid89', 'sid736', 'sid815', 'sid827', 'sid839',
+        'sid18', 'sid44', 'sid71', 'sid90', 'sid739', 'sid817', 'sid828', 'sid845']+\
+        ['sid863', 'sid864', 'sid865', 'sid870', 'sid872', 'sid875', 'sid876', 'sid880',
+         'sid881', 'sid884', 'sid886', 'sid887', 'sid890', 'sid914', 'sid915', 'sid917',
+         'sid918', 'sid927', 'sid933', 'sid940', 'sid942', 'sid944', 'sid952', 'sid960',
+         'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
+         'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
+         'sid1113', 'sid1116']
     output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'
    
     # master sheet
@@ -41,10 +53,8 @@ if __name__=='__main__':
     print(set(drug_df.Dose_Unit))
     
     # human label
-    
-    human_label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/human_annotation_from_brandon/Label'
+    human_label_dir = '/home/sunhaoqi/Desktop/IIC_human_labels'
     human_label_paths = glob.glob(os.path.join(human_label_dir, '*.csv'))
-    existing_data_path = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
     
     # body weight
     
@@ -58,9 +68,7 @@ if __name__=='__main__':
     genders = []
     eeg_start_times = []
     for i in range(len(sids)):
-        #mat = sio.loadmat(os.path.join(existing_data_path, sids[i]+'.mat'))
-        #eeg_start_time = datetime.datetime.strptime(mat['start_time'][0], '%Y/%m/%d %H:%M:%S')
-        eeg_file_names = os.listdir('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/raw_eeg_SE_pts/sid%04d/Data'%int(sids[i][3:]))
+        eeg_file_names = os.listdir('/media/mad3/Projects/SAGE_Data/sid%04d/Data'%int(sids[i][3:]))
         eeg_start_time = min([datetime.datetime.strptime('T'.join(x.replace('.mat','').split('_')[1:]), '%Y%m%dT%H%M%S') for x in eeg_file_names])
         eeg_start_times.append(eeg_start_time)
         
@@ -91,7 +99,7 @@ if __name__=='__main__':
     notnanids = np.where(~np.isnan(bodyweights))[0]
     for i in np.where(nanids)[0]:
         closeids = (genders[notnanids]==genders[i]) & (np.abs(ages[i] - ages[notnanids])<=10)
-        bodyweights[i] = bodyweights[notnanids[closeids]].mean()
+        bodyweights[i] = np.median(bodyweights[notnanids[closeids]])
     
     df_bodyweights2 = pd.DataFrame(data=np.c_[sids, bodyweights, bodyweight_times, eeg_start_times, nanids],
                                    columns=['sid', 'body weight(kg)', 'body weight time', 'eeg start time', 'imputed'])
@@ -100,10 +108,10 @@ if __name__=='__main__':
     # for each patient
     
     for si, sid in enumerate(tqdm(sids)):
+        if os.path.exists(os.path.join(output_dir, sid)):
+            continue
         drug_df_ = drug_df[drug_df.MRN==mrns[si]]
         drug_df_ = drug_df_.sort_values('Admin_Time').reset_index(drop=True)
-        #mat = sio.loadmat(os.path.join(existing_data_path, sid+'.mat'))
-        #eeg_start_time = datetime.datetime.strptime(mat['start_time'][0], '%Y/%m/%d %H:%M:%S')
         eeg_start_time = eeg_start_times[si]
         
         humanlabel = pd.read_csv([x for x in human_label_paths if 'sid%04d'%int(sid[3:]) in x][0], header=None)

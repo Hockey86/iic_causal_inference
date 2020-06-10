@@ -1,7 +1,9 @@
+from collections import defaultdict
 import datetime
 import os
 import numpy as np
 import scipy.io as sio
+from scipy.signal import convolve
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -68,6 +70,7 @@ def generate_C_features(covs):
     return covs.values, np.array(list(covs.columns))
 
 
+"""
 def PK(d, length, a, b, c, dt=0.1):
     x = [[0,0]]
     for t in range(1,length):
@@ -76,11 +79,22 @@ def PK(d, length, a, b, c, dt=0.1):
             x[-1][1] + dt*(b*x[-1][0]-c*x[-1][1])
         ])
     return np.array(x)[:,1]
-
+"""
+def PK(d, T, K, sample_points):
+    ts = np.arange(T)
+    
+    d2 = np.zeros(T)
+    for i in range(len(sample_points)-1):
+        d2[sample_points[i]:sample_points[i+1]] = d[i]
+    
+    kernel = np.r_[np.zeros(len(ts)),np.exp(-K*ts)]
+    x = convolve(d2, kernel, mode='same')/sum(kernel)
+    return x[sample_points]
+    
 
 if __name__=='__main__':
     
-    sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
+    tostudy_sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
        'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
        'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
        'sid988', 'sid1016', 'sid1025', 'sid1034', 'sid1038', 'sid1039',
@@ -96,12 +110,12 @@ if __name__=='__main__':
        
     ## generate C
     covs = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh/covariates.csv')
-    assert covs.Index.tolist()==sids
+    assert covs.Index.tolist()==tostudy_sids
     C, Cnames = generate_C_features(covs.drop(columns='Index'))
     
     ## generate Y
     outcomes = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh/outcomes.csv')
-    assert outcomes.Index.tolist()==sids
+    assert outcomes.Index.tolist()==tostudy_sids
     Y, Ynames = generate_Y(outcomes.drop(columns='Index'))
 
     """
@@ -110,7 +124,7 @@ if __name__=='__main__':
     if len(goodids)<len(Y):
         print('%d/%d (%.1f%%) patients are kept. Others are removed due to NaN\'s in Y and C'%(len(goodids), len(Y), len(goodids)*100./len(Y)))
         Y = Y[goodids]
-        sids = sids[goodids]
+        tostudy_sids = tostudy_sids[goodids]
 
         C = C[goodids]
         goodids = np.std(C, axis=0)>0
@@ -126,33 +140,19 @@ if __name__=='__main__':
     
     # a/b ^, clearance^
     # c ^, clearance^
-    As = {'levetiracetam':1,
-          'lacosamide':1,
-          'fosphenytoin':1,
-          'valproate':1,
-          'propofol':5,
-          'midazolam':5}
-          
-    Bs = {'levetiracetam':10,
-          'lacosamide':10,
-          'fosphenytoin':10,
-          'valproate':10,
-          'propofol':1,
-          'midazolam':1}
-          
-    Cs = {'levetiracetam':0.01,
-          'lacosamide':0.01,
-          'fosphenytoin':0.01,
-          'valproate':0.01,
-          'propofol':1,
-          'midazolam':1}
+    Ks = {'levetiracetam':np.log(2)/(6*3600),
+          'lacosamide':np.log(2)/(13*3600),
+          'fosphenytoin':np.log(2)/(22*3600),
+          'valproate':np.log(2)/(8*3600),
+          'propofol':np.log(2)/(1.5*3600),
+          'midazolam':np.log(2)/(1.5*3600)}
         
-    X = []
-    y = []
-    info = []
+    Xs = defaultdict(list)
+    ys = defaultdict(list)
+    sids = defaultdict(list)
     
     # for each patient
-    for si, sid in enumerate(tqdm(sids)):
+    for si, sid in enumerate(tqdm(tostudy_sids)):
         res = sio.loadmat(os.path.join(data_dir, sid+'.mat'))
         spec = res['spec']
         spec[np.isinf(spec)] = np.nan
@@ -168,8 +168,9 @@ if __name__=='__main__':
         Dnames = [x.strip() for x in res['Dnames']]
         ids = [Dnames.index(x) for x in tostudy_Dnames]
         drugs = res['drugs_weightnormalized'][:,ids]
-        u = np.array([PK(drugs[:,k], len(drugs), As[tostudy_Dnames[k]], Bs[tostudy_Dnames[k]], Cs[tostudy_Dnames[k]], dt=0.1) for k in range(len(tostudy_Dnames))]).T
-        
+        #u = np.array([PK(drugs[:,k], len(drugs), As[tostudy_Dnames[k]], Bs[tostudy_Dnames[k]], Cs[tostudy_Dnames[k]], dt=0.1) for k in range(len(tostudy_Dnames))]).T
+        u = np.array([PK(drugs[:,k], len(drugs)*2, Ks[tostudy_Dnames[k]], np.arange(len(drugs))*2) for k in range(len(tostudy_Dnames))]).T
+            
         # for each drug
         for di, dn in enumerate(tostudy_Dnames):
             this_drug = drugs[:,di]
@@ -226,13 +227,11 @@ if __name__=='__main__':
                     # after finding sz, then set to NaN where it is originally NaN
                     sz_burden[nanids] = np.nan
                     # then take the mean, mean of binary array = % of 1's
-                    sz_burden = np.nanmean(sz_burden, axis=1)*100
-                    sz_burdens.append(sz_burden)
+                    sz_burden = np.nanmean(sz_burden, axis=1)
                     
                     iic_burden = ((human_label_segs>=1) & (human_label_segs<=4)).astype(float)
                     iic_burden[nanids] = np.nan
-                    iic_burden = np.nanmean(iic_burden, axis=1)*100
-                    iic_burdens.append(iic_burden)
+                    iic_burden = np.nanmean(iic_burden, axis=1)
                     
                     # segment spike_rate into windows
                     # spike_rate.shape = (#2s-window,)
@@ -241,26 +240,39 @@ if __name__=='__main__':
                     nanids = np.all(np.isnan(spike_rate), axis=1)
                     spike_rate = np.nansum(spike_rate, axis=1)/window_size*60
                     spike_rate[nanids] = np.nan
-                    spike_rates.append(spike_rate)
+                    
+                    y = np.array([sz_burden, iic_burden, spike_rate]).T
+                    ys[window_times[wi]].append(y)
                     
                     u_segs = u.T[:, list(map(lambda x:np.arange(x,x+window_size), start_id))].transpose(1,0,2)
-                    u_segs = np.nansum(u_segs, axis=2)/3600.
-                    drug_concentrations.append(u_segs)
+                    u_segs = np.nanmean(u_segs, axis=2)
                     
-                    X.append(np.r_[u_segs[1]-u_segs[0], u_segs[0], sz_burden[0], iic_burden[0], spike_rate[0], C[si]])
-                    y.append([sz_burden[1], iic_burden[1], spike_rate[1]])
-                    info.append([sid, dn, ci, window_times[wi]])
+                    X = np.c_[u_segs, np.array([C[si]]*len(y))]
+                    Xs[window_times[wi]].append(X)
+                   
+                    sids[window_times[wi]].append([sid]*len(y))
         
-    Xnames = ['diff_'+x for x in tostudy_Dnames] + ['baseline_'+x for x in tostudy_Dnames] + ['baseline_Sz_burden', 'baseline_IIC_burden', 'baseline_spike_rate'] + list(Cnames)
-    ynames = ['new_sz_burden', 'new_iic_burden', 'new_spike_rate']
-    infonames = ['sid', 'drug_name', 'change_point_id', 'window_time_second']
-    X2 = pd.DataFrame(data=np.array(X, dtype=float), columns=Xnames)
-    y2 = pd.DataFrame(data=np.array(y, dtype=float), columns=ynames)
-    info2 = pd.DataFrame(data=np.array(info, dtype=object), columns=infonames)
+    Xnames = np.r_[tostudy_Dnames, Cnames]
+    ynames = np.array(['sz burden', 'iic burden', 'spike rate'])
     
     ## save
-
-    X2.to_csv('X.csv', index=False)
-    y2.to_csv('y.csv', index=False)
-    info2.to_csv('info.csv', index=False)
-
+    
+    with pd.ExcelWriter('Xy.xlsx') as ff:
+        for k in window_times:
+            if k not in Xs or k not in ys:
+                continue
+            X = np.concatenate(Xs[k], axis=0)
+            y = np.concatenate(ys[k], axis=0)
+            sids[k] = np.concatenate(sids[k], axis=0)
+            X = pd.DataFrame(data=np.c_[sids[k], X], columns=np.r_[['sid'], Xnames])
+            y = pd.DataFrame(data=np.c_[sids[k], y], columns=np.r_[['sid'], ynames])
+            X[Xnames] = X[Xnames].astype(float)
+            y[ynames] = y[ynames].astype(float)
+            # remove nan
+            notnan_ids = (~np.any(pd.isna(X), axis=1)) & (~np.any(pd.isna(y), axis=1))
+            X = X[notnan_ids].reset_index(drop=True)
+            y = y[notnan_ids].reset_index(drop=True)
+            X.to_excel(ff, index=False, sheet_name='X_window_%ds'%k)
+            y.to_excel(ff, index=False, sheet_name='y_window_%ds'%k)
+    
+        

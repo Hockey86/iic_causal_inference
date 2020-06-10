@@ -19,14 +19,25 @@ from tqdm import tqdm
 
 # define input files
 data_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
-# 37 status eplipticus patients
 sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
-       'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
-       'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
-       'sid988', 'sid1016', 'sid1025', 'sid1034', 'sid1038', 'sid1039',
-       'sid1055', 'sid1056', 'sid1063', 'sid1337', 'sid1897', 'sid1913',
-       'sid1915', 'sid1916', 'sid1917', 'sid1926', 'sid1928', 'sid1956',
-       'sid1966']
+    'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
+    'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
+    'sid988', 'sid1016', 'sid1025', 'sid1034', 'sid1038', 'sid1039',
+    'sid1055', 'sid1056', 'sid1063', 'sid1337', 'sid1897', 'sid1913',
+    'sid1915', 'sid1916', 'sid1917', 'sid1926', 'sid1928', 'sid1956',
+    'sid1966']+\
+   ['sid2', 'sid23', 'sid45', 'sid77', 'sid91', 'sid741', 'sid821', 'sid832', 'sid848',
+    'sid8', 'sid24', 'sid54', 'sid82', 'sid92', 'sid771', 'sid822', 'sid833', 'sid849',
+    'sid11', 'sid28', 'sid57', 'sid84', 'sid97', 'sid801', 'sid823', 'sid834', 'sid852',
+    'sid13', 'sid30', 'sid61', 'sid88', 'sid734', 'sid808', 'sid824', 'sid837', 'sid856',
+    'sid17', 'sid38', 'sid69', 'sid89', 'sid736', 'sid815', 'sid827', 'sid839',
+    'sid18', 'sid44', 'sid71', 'sid90', 'sid739', 'sid817', 'sid828', 'sid845']+\
+    ['sid863', 'sid864', 'sid865', 'sid870', 'sid872', 'sid875', 'sid876', 'sid880',
+     'sid881', 'sid884', 'sid886', 'sid887', 'sid890', 'sid914', 'sid915', 'sid917',
+     'sid918', 'sid927', 'sid933', 'sid940', 'sid942', 'sid944', 'sid952', 'sid960',
+     'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
+     'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
+     'sid1113', 'sid1116']
 
 # define windows
 # if using the first 24h, we cannot have window size of 12h or 24h
@@ -198,8 +209,13 @@ for sid in tqdm(sids):
                 sz_burden = sz_burdens[wi]
                 iic_burden = iic_burdens[wi]
                 ax2 = fig.add_subplot(subgs[wi])
-                ax2.plot(start_id+window_size_//2, sz_burden, c='r', label='Sz')
-                ax2.plot(start_id+window_size_//2, iic_burden, c='k', label='IIC')
+                if wi>=2:
+                    marker = 'o'
+                else:
+                    marker = ''
+                ms = 5
+                ax2.plot(start_id+window_size_//2, sz_burden, marker=marker, ms=ms, c='r', label='Sz')
+                ax2.plot(start_id+window_size_//2, iic_burden, marker=marker, ms=ms, c='k', label='IIC')
                 ax2.text(0, 1, window_txt[wi], ha='left', va='top', transform=ax2.transAxes)
                 if wi==len(window_times)-1:
                     ax2.legend(ncol=2)
@@ -228,7 +244,12 @@ for sid in tqdm(sids):
                 window_size_ = int(window_times[wi])//2
                 spike_rate = spike_rates[wi]
                 ax3 = fig.add_subplot(subgs[wi])
-                ax3.plot(start_id+window_size_//2, spike_rate)
+                if wi>=2:
+                    marker = 'o'
+                else:
+                    marker = ''
+                ms = 5
+                ax3.plot(start_id+window_size_//2, spike_rate, marker=marker, ms=ms)
                 ax3.text(0, 1, window_txt[wi], ha='left', va='top', transform=ax3.transAxes)
                 if wi==len(window_times)//2:
                     ax3.set_ylabel('Spike Rate\n(/min)')
