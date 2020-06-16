@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 # define input files
 data_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
+"""
 sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
     'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
     'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
@@ -38,6 +39,10 @@ sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
      'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
      'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
      'sid1113', 'sid1116']
+"""
+sids = ['sid1016', 'sid1055', 'sid406', 'sid551', 'sid832',
+        'sid1039', 'sid36', 'sid456', 'sid824', 'sid88']
+
 
 # define windows
 # if using the first 24h, we cannot have window size of 12h or 24h
@@ -77,11 +82,16 @@ for sid in tqdm(sids):
     spike = res['spike'].flatten()
     start_time = res['start_time'][0].strip()
     Dnames = [x.strip() for x in res['Dnames']]
-    human_label = res['human_iic'].flatten()
+    human_label = res['human_iic'].flatten().astype(float)
     artifact_indicator = res['artifact'].flatten()
     
     human_label[artifact_indicator==1] = np.nan
     spike[artifact_indicator==1] = np.nan
+    
+    res_sim = sio.loadmat(os.path.join('/data/IIC-Causality/mycode/aim1/simulator/simluations', 'E_%s.mat'%sid))
+    iic_sim = res_sim['Esim'].flatten()
+    iic_sim = np.repeat(iic_sim, 900)[:len(human_label)]
+    
     
     # for each drug
     for dn in tostudy_Dnames:
@@ -127,6 +137,7 @@ for sid in tqdm(sids):
             start_ids = []
             sz_burdens = []
             iic_burdens = []
+            iic_sim_burdens = []
             spike_rates = []
             for wi in range(len(window_times)):
                 window_size_ = int(window_times[wi])//2
@@ -155,6 +166,11 @@ for sid in tqdm(sids):
                 iic_burden[nanids] = np.nan
                 iic_burden = np.nanmean(iic_burden, axis=1)*100
                 iic_burdens.append(iic_burden)
+                
+                iic_sim_segs = iic_sim.reshape(1,-1)[:, list(map(lambda x:np.arange(x,x+window_size_), start_id))][0]
+                # then take the mean, mean of binary array = % of 1's
+                iic_sim_burden = np.nanmean(iic_sim_segs, axis=1)*100
+                iic_sim_burdens.append(iic_sim_burden)
                 
                 # segment spike_rate into windows
                 # spike_rate.shape = (#2s-window,)
@@ -208,6 +224,7 @@ for sid in tqdm(sids):
                 window_size_ = int(window_times[wi])//2
                 sz_burden = sz_burdens[wi]
                 iic_burden = iic_burdens[wi]
+                iic_sim_burden = iic_sim_burdens[wi]
                 ax2 = fig.add_subplot(subgs[wi])
                 if wi>=2:
                     marker = 'o'
@@ -216,6 +233,7 @@ for sid in tqdm(sids):
                 ms = 5
                 ax2.plot(start_id+window_size_//2, sz_burden, marker=marker, ms=ms, c='r', label='Sz')
                 ax2.plot(start_id+window_size_//2, iic_burden, marker=marker, ms=ms, c='k', label='IIC')
+                ax2.plot(start_id+window_size_//2, iic_sim_burden, marker=marker, ms=ms, c='b', label='SimIIC')
                 ax2.text(0, 1, window_txt[wi], ha='left', va='top', transform=ax2.transAxes)
                 if wi==len(window_times)-1:
                     ax2.legend(ncol=2)
