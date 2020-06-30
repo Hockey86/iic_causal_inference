@@ -150,7 +150,7 @@ def pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C, return_P=False):
     
 def myloss(x,E,D,C):
     a0, a1, a2, betaA, b0, b, betaB = get_params(x,D,C)
-    Ep, log_Pts, log_1_Pts = pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C, return_P=True)
+    _, log_Pts, log_1_Pts = pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C, return_P=True)
     loss = np.mean([np.mean(- E[i]*log_Pts[i] - (1-E[i])*log_1_Pts[i]) for i in range(len(E))])
     return loss
 
@@ -207,7 +207,7 @@ class IICSimulatorBayesian(object):
         D2 = np.array([np.r_[D[i], np.zeros((self.maxlen-len(D[i]), D[i].shape[1]))+np.nan] for i in range(len(D))])
         
         #theano.config.mode = 'FAST_COMPILE'
-        #theano.config.allow_gc = False
+        theano.config.allow_gc = False
         
         np.random.seed(self.random_state)
         random_seed = [np.random.randint(low=0,high=100000) for _ in range(self.n_jobs)]
@@ -223,8 +223,8 @@ class IICSimulatorBayesian(object):
             NC = self.C_shared.get_value().shape[-1]
             
             a0 = pm.Normal('a0', mu=0, sigma=1)
-            a1 = pm.HalfNormal('a1', sigma=1)
-            a2 = pm.HalfNormal('a2', sigma=1)
+            a1 = pm.Normal('a1', mu=0, sigma=1)
+            a2 = pm.Normal('a2', mu=0, sigma=1)
             betaA = pm.HalfNormal('betaA', sigma=1, shape=NC)
             
             b0 = pm.Normal('b0', mu=0, sigma=1)
@@ -232,19 +232,19 @@ class IICSimulatorBayesian(object):
             betaB = pm.Normal('betaB', sigma=1, shape=NC)
             
             # forward
-            Ep = []
+            Pt = []
             Eobs = []
             #log_Pts = []
             #log_1_Pts = []
             for i in range(N):
-                Ep.append([])
+                Pt.append([])
                 Eobs.append([])
                 #log_Pts.append([])
                 #log_1_Pts.append([])
                 logit_Pt = []
                 for t in range(self.Ts_shared.get_value()[i]):
                     if t==0:
-                        logit_Pt_1 = 0
+                        logit_Pt_1 = 0  #TODO try with and without logit
                         logit_Pt_2 = 0
                     elif t==1:
                         logit_Pt_1 = logit_Pt[t-1]
@@ -257,7 +257,7 @@ class IICSimulatorBayesian(object):
                     log_Pt = logsigmoid_theano(At) + logsigmoid_theano(-Bt)
                     log_1_Pt = log1mexp_theano(log_Pt)
                     logit_Pt.append(log_Pt - log_1_Pt)
-                    Ep[i].append(tt.exp(log_Pt))
+                    Pt[i].append(tt.exp(log_Pt))
                     Eobs[i].append(self.E_shared[i][t])
                     #log_Pts[i].append(log_Pt)
                     #log_1_Pts[i].append(log_1_Pt)
@@ -267,12 +267,12 @@ class IICSimulatorBayesian(object):
             weights = tt.concatenate([[1./Ts[i]]*Ts[i] for i in range(len(Ts))])
             weights = weights/weights.mean()
             
-            self.W = 100
+            self.W = 1800
             eps = 1e-6
-            Ep = tt.concatenate(Ep)
-            Ep = pm.Deterministic('Ep', tt.clip(Ep, eps, 1-eps))
+            Pt = tt.concatenate(Pt)
+            Pt = pm.Deterministic('Pt', tt.clip(Pt, eps, 1-eps))
             Eobs = tt.round((tt.concatenate(Eobs)*self.W)).astype('int64')
-            self.potential = pm.Potential('weighted_ll', weights * pm.Binomial.dist(n=self.W, p=Ep).logp(Eobs))
+            self.potential = pm.Potential('weighted_ll', weights * pm.Binomial.dist(n=self.W, p=Pt).logp(Eobs))
              
             #step = pm.NUTS(potential=self.potential)
             self.trace = pm.sample(self.max_iter, tune=self.max_iter//2, cores=self.n_jobs, random_seed=random_seed)#, step=step)
@@ -306,7 +306,8 @@ class IICSimulatorBayesian(object):
         self.Ts_shared.set_value(np.array(Ts))
         self.C_shared.set_value(C)
         """
-        Ep = []
+        Esim = []
+        np.random.seed(self.random_state)
         for i in tqdm(range(self.Nsample), disable=not verbose):
             a0 = self.a0_posterior[i]
             a1 = self.a1_posterior[i]
@@ -316,8 +317,13 @@ class IICSimulatorBayesian(object):
             b = self.b_posterior[i]
             betaB = self.betaB_posterior[i]
             
-            Ep.append(pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C))
-        return np.array(Ep)
+            # get Pt which is the parameter of the binomial distribution
+            Pt = pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C)
+            # sample from the distribution
+            Ep = [np.random.binomial(self.W, x)/self.W for x in Pt]
+
+            Esim.append(Ep)
+        return np.array(Esim)
 
 
 def plot_sim(E, Eobs, d_conc, sid):
@@ -361,8 +367,8 @@ def learn_all(patients, C):
         #Leave one out procedure
         sid = sids[pti]
         
-        Etr = [E[x] for x in range(len(sids)) if sids[x]!=sid]
-        Dtr = [D[x] for x in range(len(sids)) if sids[x]!=sid]
+        Etr = [E[x][:30] for x in range(len(sids)) if sids[x]!=sid]
+        Dtr = [D[x][:30] for x in range(len(sids)) if sids[x]!=sid]
         Ctr = np.array([C[x] for x in range(len(sids)) if sids[x]!=sid])
         Ete = E[sids.index(sid)]
         Dte = D[sids.index(sid)]
@@ -380,7 +386,7 @@ def learn_all(patients, C):
         
         #fit simulator
         #model = IICSimulatorMLE()
-        model = IICSimulatorBayesian(max_iter=1000, n_jobs=12, random_state=random_state)
+        model = IICSimulatorBayesian(max_iter=500, n_jobs=6, random_state=random_state)
         model.fit(Etr, Dtr, Ctr)
         Esim_posterior = model.predict([Dte], Cte)
         Esim = np.mean(Esim_posterior, axis=0)[0]
@@ -405,9 +411,9 @@ if __name__=='__main__':
     drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam', 
                      'pentobarbital','phenobarbital', 'phenytoin',
                      'propofol', 'valproate']
+    """
     paths = glob.glob('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output/sid*.mat')
     
-    """
     patients = []
     sids = []
     for path in tqdm(paths):
@@ -421,12 +427,8 @@ if __name__=='__main__':
     #patients = patients[:20]
     #sids = sids[:20]
     
-    Cnames = ['Age', 'Hx CVA (including TIA)',
-        'Hx Sz /epilepsy', 
-        'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)',
-        'neuro_dx_Seizures/status epilepticus']
-        
-    cov = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output/covariates.csv')
+    Cnames = ['Age']
+    cov = pd.read_csv('covariates.csv')
     cov_sids = list(cov.Index)
     ids = [cov_sids.index(x) for x in sids]
     cov = cov.iloc[ids].reset_index(drop=True)
