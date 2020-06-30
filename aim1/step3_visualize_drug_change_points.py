@@ -19,7 +19,6 @@ from tqdm import tqdm
 
 # define input files
 data_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
-"""
 sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
     'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
     'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
@@ -39,9 +38,6 @@ sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
      'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
      'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
      'sid1113', 'sid1116']
-"""
-sids = ['sid1016', 'sid1055', 'sid406', 'sid551', 'sid832',
-        'sid1039', 'sid36', 'sid456', 'sid824', 'sid88']
 
 
 # define windows
@@ -340,5 +336,5 @@ for sid in tqdm(sids):
             plt.tight_layout()
             plt.subplots_adjust(hspace=0.23)
             #plt.show()
-            plt.savefig(save_path, bbox_inches='tight', pad_inches=0.01)
+            plt.savefig(save_path, bbox_inches='tight', pad_inches=0.05)
             
