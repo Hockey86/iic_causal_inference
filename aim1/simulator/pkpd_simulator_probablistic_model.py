@@ -104,7 +104,7 @@ class IICSimulatorCarryForward(object):
         assert len(D)==len(C)
         Ebaseline = []
         for i in range(len(E)):
-            ee = np.r_[E[i][:self.carry_start_step], np.repeat(E[i][[self.carry_start_step-1]], len(E[i])-self.carry_start_step, axis=0)]
+            ee = np.r_[E[i][:self.carry_start_step], np.repeat(E[i][[self.carry_start_step-1]], len(D[i])-self.carry_start_step, axis=0)]
             Ebaseline.append(ee)
         return Ebaseline
 
@@ -118,7 +118,7 @@ def pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C, return_P=False):
         log_Pts.append([])
         log_1_Pts.append([])
         logit_Pt = []
-        for t in range(D[i].shape[1]):
+        for t in range(len(D[i])):
             if t==0:
                 logit_Pt_1 = 0
                 logit_Pt_2 = 0
@@ -129,7 +129,7 @@ def pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C, return_P=False):
                 logit_Pt_1 = logit_Pt[t-1]
                 logit_Pt_2 = logit_Pt[t-2]
             At = a0 + a1*logit_Pt_1 + a2*logit_Pt_2 + np.dot(betaA, C[i])
-            Bt = b0 + np.dot(b, D[i][:,t]) + np.dot(betaB, C[i])
+            Bt = b0 + np.dot(b, D[i][t]) + np.dot(betaB, C[i])
             log_Pt = logsigmoid_numpy(At) + logsigmoid_numpy(-Bt)
             log_1_Pt = log1mexp_numpy(log_Pt)
             logit_Pt.append(log_Pt - log_1_Pt)
@@ -198,63 +198,13 @@ class IICSimulatorBayesian(object):
     
     def fit(self, E, D, C):
         assert len(E)==len(D)==len(C)
-        N = len(E)
-        ND = D[0].shape[1]
-        NC = C.shape[1]
         
         # pad to have the same length
         assert [len(x) for x in E]==[len(x) for x in D]
         Ts = np.array([len(x) for x in D])
         self.maxlen = max(Ts)
-        #E2 = np.array([np.r_[E[i], np.zeros(self.maxlen-len(E[i]))+np.nan] for i in range(len(E))])
+        E2 = np.array([np.r_[E[i], np.zeros(self.maxlen-len(E[i]))+np.nan] for i in range(len(E))])
         D2 = np.array([np.r_[D[i], np.zeros((self.maxlen-len(D[i]), D[i].shape[1]))+np.nan] for i in range(len(D))])
-        
-        self.stan_model = """
-data {
-    int<lower=0> N;
-    int<lower=0> T;
-    int<lower=0> ND;
-    int<lower=0> NC;
-    matrix[N,T] E;
-    matrix[T,ND] D[N]
-}
-
-parameters {
-    real a0;
-    real a1;
-    real a2;
-    vector[NC] betaA;
-    
-    real b0;
-    vector[ND] b;
-    vector[NC] betaB;
-    
-    real theta_u;
-    real theta_l;
-    real p1_s;
-    real p2_s;
-}
-
-transformed parameters {
-    vector[T] p;
-    vector[T] A;
-    vector[T] B;
-    p[1] = p1_s;
-    p[2] = p2_s;
-    for (t in 3:T) {
-        A[t] = a0 + a1*p[t-1] + a2*p[t-2] + betaA;
-        B[t] = b0 + dot_product(b,col(D,t));
-        p[t] = (1/(1+exp(-1*A[t])))*(1 - (1/(1+exp(-1*B[t]))));
-    }
-}
-
-model {
-    p1_s ~ uniform(theta_l,theta_u);
-    p2_s ~ uniform(theta_l,theta_u);
-    for (t in 1:T) {
-        E[t] ~ bernoulli(p[t]);
-    }   
-}"""
         
         #theano.config.mode = 'FAST_COMPILE'
         #theano.config.allow_gc = False
@@ -262,11 +212,16 @@ model {
         np.random.seed(self.random_state)
         random_seed = [np.random.randint(low=0,high=100000) for _ in range(self.n_jobs)]
         
+        self.E_shared = theano.shared(E2)
         self.D_shared = theano.shared(D2)
         self.Ts_shared = theano.shared(Ts)
         self.C_shared = theano.shared(C)
         with pm.Model() as self.model:
             # define paramters
+            N = len(self.E_shared.get_value())
+            ND = self.D_shared.get_value().shape[-1]
+            NC = self.C_shared.get_value().shape[-1]
+            
             a0 = pm.Normal('a0', mu=0, sigma=1)
             a1 = pm.HalfNormal('a1', sigma=1)
             a2 = pm.HalfNormal('a2', sigma=1)
@@ -278,10 +233,12 @@ model {
             
             # forward
             Ep = []
+            Eobs = []
             #log_Pts = []
             #log_1_Pts = []
             for i in range(N):
                 Ep.append([])
+                Eobs.append([])
                 #log_Pts.append([])
                 #log_1_Pts.append([])
                 logit_Pt = []
@@ -301,28 +258,40 @@ model {
                     log_1_Pt = log1mexp_theano(log_Pt)
                     logit_Pt.append(log_Pt - log_1_Pt)
                     Ep[i].append(tt.exp(log_Pt))
+                    Eobs[i].append(self.E_shared[i][t])
                     #log_Pts[i].append(log_Pt)
                     #log_1_Pts[i].append(log_1_Pt)
                   
             # generate sample weights which is inverse proportional to T
-            weights = np.concatenate([[1./Ts[i]]*Ts[i] for i in range(len(Ts))])
+            Ts = self.Ts_shared.get_value()
+            weights = tt.concatenate([[1./Ts[i]]*Ts[i] for i in range(len(Ts))])
             weights = weights/weights.mean()
             
             self.W = 100
             eps = 1e-6
-            Eobs = np.round(np.concatenate(E)*self.W).astype(int)
             Ep = tt.concatenate(Ep)
             Ep = pm.Deterministic('Ep', tt.clip(Ep, eps, 1-eps))
+            Eobs = tt.round((tt.concatenate(Eobs)*self.W)).astype('int64')
             self.potential = pm.Potential('weighted_ll', weights * pm.Binomial.dist(n=self.W, p=Ep).logp(Eobs))
              
             #step = pm.NUTS(potential=self.potential)
             self.trace = pm.sample(self.max_iter, tune=self.max_iter//2, cores=self.n_jobs, random_seed=random_seed)#, step=step)
-            import pdb;pdb.set_trace()
-            aa=1
+        
+            self.var_names = ['a0', 'a1', 'a2', 'betaA', 'b0', 'b', 'betaB']
+            self.Nsample = 1000
+            pred = pm.sample_posterior_predictive(self.trace, samples=self.Nsample, var_names=self.var_names)
+            
+            for vn in self.var_names:
+                setattr(self, vn, np.mean(pred[vn], axis=0))
+                setattr(self, vn+'_posterior', pred[vn])
+                setattr(self, vn+'_lb', np.percentile(pred[vn], 2.5, axis=0))
+                setattr(self, vn+'_ub', np.percentile(pred[vn], 97.5, axis=0))
             
         return self
     
-    def predict(self, D, C):
+    def predict(self, D, C, verbose=True):
+        #TODO model_factory
+        """
         D2 = []
         Ts = []
         for i in range(len(D)):
@@ -333,29 +302,38 @@ model {
                 D2.append(D[i][:self.maxlen])
                 Ts.append(self.maxlen)
         self.D_shared.set_value(np.array(D2))
+        self.E_shared.set_value(np.zeros((len(D2), self.maxlen)))
         self.Ts_shared.set_value(np.array(Ts))
         self.C_shared.set_value(C)
-        
-        with self.model:
-            pred = pm.sample_posterior_predictive(self.trace, samples=500)
+        """
+        Ep = []
+        for i in tqdm(range(self.Nsample), disable=not verbose):
+            a0 = self.a0_posterior[i]
+            a1 = self.a1_posterior[i]
+            a2 = self.a2_posterior[i]
+            betaA = self.betaA_posterior[i]
+            b0 = self.b0_posterior[i]
+            b = self.b_posterior[i]
+            betaB = self.betaB_posterior[i]
             
-        return pred['Ep']
+            Ep.append(pharmacodynamics(a0,a1,a2,betaA,b0,b,betaB,D,C))
+        return np.array(Ep)
 
 
 def plot_sim(E, Eobs, d_conc, sid):
     plt.close()
     fig,ax = plt.subplots(2,1)
     plt.title(sid)
-    ax[0].plot(E)
-    ax[0].plot(Eobs)
-    # ax[0].plot(Erandom)
+    ax[0].plot(E[:,0], color='r', label='Simulated')
+    ax[0].plot(E[:,1], color='r')
+    ax[0].plot(E[:,2], color='r')
+    ax[0].plot(Eobs, color='k', label='Observed')
     # ax[0].plot(Enoise)
-    # ax[0].plot(Eobs,'--',alpha=0.3,)
     # ax[0].fill_between(np.arange(T),y1=E+2*params[-1],y2=E-2*params[-1],alpha=0.15)
+    ax[0].legend(bbox_to_anchor=(1.1, 1.05))
 
-    ax[1].plot(d_conc.T,alpha=0.75)
-    ax[0].legend(['Simulated','Observed'],bbox_to_anchor=(1.1, 1.05))
-    ax[1].legend(halflife.columns,bbox_to_anchor=(1.1, 1.05))
+    ax[1].plot(d_conc,alpha=0.75)
+    ax[1].legend(halflife.columns, bbox_to_anchor=(1.1, 1.05))
     plt.tight_layout()
     fig.savefig('figures/'+sid+'.png')
 
@@ -373,9 +351,6 @@ def learn_all(patients, C):
                   'propofol', 'valproate']].fillna(0).to_numpy().T
         D.append(drug_concentration(Ddose,k)[:,:len(E[-1])].T)
         sids.append(os.path.basename(p.sid.iloc[0]))
-    #E = np.array(E)
-    #D = np.array(D)
-    #sids = np.array(sids)
     
     Esims = []
     Ebaselines = []
@@ -386,8 +361,8 @@ def learn_all(patients, C):
         #Leave one out procedure
         sid = sids[pti]
         
-        Etr = [E[x][:20] for x in range(len(sids)) if sids[x]!=sid]
-        Dtr = [D[x][:20] for x in range(len(sids)) if sids[x]!=sid]
+        Etr = [E[x] for x in range(len(sids)) if sids[x]!=sid]
+        Dtr = [D[x] for x in range(len(sids)) if sids[x]!=sid]
         Ctr = np.array([C[x] for x in range(len(sids)) if sids[x]!=sid])
         Ete = E[sids.index(sid)]
         Dte = D[sids.index(sid)]
@@ -398,16 +373,21 @@ def learn_all(patients, C):
         Ctr = (Ctr-Cmean)/Cstd
         Cte = (Cte-Cmean)/Cstd
         
-        #fit simulator
-        #model = IICSimulatorMLE()
-        model = IICSimulatorBayesian(max_iter=50, n_jobs=8, random_state=random_state)
-        model.fit(Etr, Dtr, Ctr)
-        Esim = model.predict([Dte], Cte)[0]
-        
         # get baseline prediction
         model = IICSimulatorCarryForward(carry_start_step=2)
         model.fit(Etr, Dtr, Ctr)
         Ebaseline = model.predict([Ete[:2]], [Dte], Cte)[0]
+        
+        #fit simulator
+        #model = IICSimulatorMLE()
+        model = IICSimulatorBayesian(max_iter=1000, n_jobs=12, random_state=random_state)
+        model.fit(Etr, Dtr, Ctr)
+        Esim_posterior = model.predict([Dte], Cte)
+        Esim = np.mean(Esim_posterior, axis=0)[0]
+        Esim_lb, Esim_ub = np.percentile(Esim_posterior, (2.5,97.5), axis=0)
+        Esim_lb = Esim_lb[0]
+        Esim_ub = Esim_ub[0]
+        Esim = np.c_[Esim, Esim_lb, Esim_ub]
         
         #Plot
         plot_sim(Esim, Ete, Dte, sid)
@@ -415,10 +395,10 @@ def learn_all(patients, C):
         Esims.append(Esim)
         Ebaselines.append(Ebaseline)
         trained_sid.append(sid)
-        params.append(opt_res.x)
-        loss_array.append(opt_res.func)
+        #params.append(opt_res.x)
+        #loss_array.append(opt_res.func)
             
-    return Esims, trained_sid, params, loss_array
+    return Esims, Ebaselines, trained_sid#, params, loss_array
 
 
 if __name__=='__main__':
@@ -438,14 +418,14 @@ if __name__=='__main__':
     """
     with open('input_data.pickle', 'rb') as ff:
         patients, sids = pickle.load(ff)
-    patients = patients[:20]
-    sids = sids[:20]
+    #patients = patients[:20]
+    #sids = sids[:20]
     
     Cnames = ['Age', 'Hx CVA (including TIA)',
         'Hx Sz /epilepsy', 
         'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)',
         'neuro_dx_Seizures/status epilepticus']
-    
+        
     cov = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output/covariates.csv')
     cov_sids = list(cov.Index)
     ids = [cov_sids.index(x) for x in sids]
@@ -455,5 +435,5 @@ if __name__=='__main__':
     C = cov.values.astype(float)
     #C = C[:,np.nanstd(C, axis=0)>0.1]
     C = KNNImputer(n_neighbors=10).fit_transform(C)
-    Esims, trained_sid, params_learned, loss_array = learn_all(patients, C)
+    Esims, Ebaselines, trained_sid = learn_all(patients, C)
 
