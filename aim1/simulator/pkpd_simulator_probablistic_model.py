@@ -310,15 +310,6 @@ class IICSimulatorBayesian(object):
             b0 = pm.Normal('b0', mu=0, sigma=10)
             b = pm.HalfNormal('b', sigma=10, shape=ND)
             betaB = pm.Normal('betaB', sigma=10, shape=NC)
-            """
-            a0 = pm.Cauchy('a0', 0, 1)
-            a1 = pm.Cauchy('a1', 0, 1)
-            a2 = pm.Cauchy('a2', 0, 1)
-            betaA = pm.HalfCauchy('betaA', 1, shape=NC)
-            b0 = pm.Cauchy('b0', 0, 1)
-            b = pm.HalfCauchy('b', 1, shape=ND)
-            betaB = pm.Cauchy('betaB', 0, 1, shape=NC)
-            """
             
             # forward
             Pt = [E[:,0], E[:,1]]
@@ -529,15 +520,19 @@ if __name__=='__main__':
     
     patients = []
     sids = []
+    no_drug_sids = []
     for path in tqdm(paths):
         p = patient(path)
+        sid = os.path.basename(path).replace('.mat','')
         if p[drugs_tostudy].fillna(0).values.max()>0:
             patients.append(p)
-            sids.append(os.path.basename(path).replace('.mat',''))
+            sids.append(sid)
+        else:
+            no_drug_sids.append(sid)
     """
     with open('input_data.pickle', 'rb') as ff:
         sids, patients, cov = pickle.load(ff)
-    
+    import pdb;pdb.set_trace()
     ## preprocessing
     Cnames = ['Age']
     C = cov[Cnames].values.astype(float)
