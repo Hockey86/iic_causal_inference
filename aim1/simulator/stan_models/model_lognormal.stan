@@ -17,7 +17,7 @@ parameters {
     real<lower=0> sigma_alpha;
     vector<lower=0>[ND] sigma_b;
     
-    vector<lower=0>[N] t0;//, upper=10
+    vector<lower=0, upper=336>[N] t0;  // max 7 days (7*24*2) (0.5h/step)
     vector[N] mu;
     vector<lower=0>[N] sigma;
     vector<lower=0>[N] alpha;

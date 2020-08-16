@@ -8,6 +8,7 @@
 
 from itertools import groupby
 import os
+import pickle
 import timeit
 import scipy.io as sio
 from scipy.special import logit
@@ -358,12 +359,26 @@ C = (C-Cmean)/Cstd
 
 # # define and infer model
 
-simulator = Simulator('stan_models/model_lognormal.stan', W, random_state=random_state)
-simulator.fit(D, Eobs)
-Ep_sim = simulator.predict(D, training=True)
-#Esim = simulator.predict(D, training=True, sim=100)
+model_type = 'AR2'
+#model_type = 'lognormal'
 
-import pdb;pdb.set_trace()
+max_iter = 1000
+save_path = 'results/model_fit_%s.pkl'%model_type
+if model_type=='AR1':
+    T0 = 1
+    simulator = Simulator('stan_models/model_AR1.stan', W, T0=T0, max_iter=max_iter, random_state=random_state)
+    simulator.fit(D, Eobs, save_path=save_path)
+    Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
+elif model_type=='AR2':
+    T0 = 2
+    simulator = Simulator('stan_models/model_AR2.stan', W, T0=T0, max_iter=max_iter, random_state=random_state)
+    simulator.fit(D, Eobs, save_path=save_path)
+    Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
+elif model_type=='lognormal':
+    simulator = Simulator('stan_models/model_lognormal.stan', W, max_iter=max_iter, random_state=random_state)
+    simulator.fit(D, Eobs, save_path=save_path)
+    Ep_sim = simulator.predict(D, training=True)
+
 
 # baseline
 
@@ -385,7 +400,7 @@ Epte_baseline = np.c_[np.array([Pobstr[-1][:tt]]*len(Ppte)), Epte_baseline]
 Ep_te_baseline.append(Epte_baseline)
 """
 
-with open('results.pickle', 'wb') as ff:
+with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
                  #'Ep_baseline':Ep_bl,
                  'E':Eobs, 'D':D,

@@ -98,3 +98,4 @@ model {
         target += binomial_lpmf(Eobs_flatten_nonan[i] | W, p_flatten_nonan[i]) * sample_weights[i]/not_empty_num;
     }
 }
+
