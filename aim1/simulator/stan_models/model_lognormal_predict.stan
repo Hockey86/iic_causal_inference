@@ -39,7 +39,7 @@ generated quantities {
             P_output[i][:,t] = alpha[i] .* exp(-(tmp .* tmp) ./ (2* (sigma[i] .* sigma[i]))) - (D[t] .* b[i])*ones_b;
         }
         
-        P_output = inv_logit(P_output);
+        P_output[i] = inv_logit(P_output[i]);
         
         for (t in 1:T) {
             for (n in 1:N) {

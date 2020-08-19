@@ -11,6 +11,19 @@ import pystan
 
 def rmse(x, y):
     return np.sqrt(np.mean((x-y)**2))
+
+
+def sample_from_multivariate_normal(X, size):
+    """
+    X: shape=(N, D), which are used to generate mean vector and cov matrix
+    size: number of samples to be drew
+    returns
+    array of shape (size, D)
+    """
+    means = np.mean(X, axis=0)
+    cov = np.cov(X.T)
+    res = np.random.multivariate_normal(means, cov, size=size)
+    return res
     
 
 class BaseSimulator(object):
@@ -222,12 +235,15 @@ class Simulator(BaseSimulator):
             if self.stan_model_path.endswith('_AR1.stan'):
                 pars = ['a0','a1','b']
                 pars_shape = [(N,), (N,), (N, ND)]
+                pars_shape2 = [1,1,ND]
             elif self.stan_model_path.endswith('_AR2.stan'):
                 pars = ['a0','a1','a2','b']
                 pars_shape = [(N,), (N,), (N,), (N, ND)]
+                pars_shape2 = [1,1,1,ND]
             elif self.stan_model_path.endswith('_lognormal.stan'):
-                pars = ['mu', 'alpha', 'sigma', 'b']#'t0', 
-                pars_shape = [(N,), (N,), (N,), (N, ND)]#(N,), 
+                pars = ['mu', 'alpha', 'sigma', 'b']#'t0',
+                pars_shape = [(N,), (N,), (N,), (N, ND)]#(N,),
+                pars_shape2 = [1,1,1,ND]
             else:
                 raise NotImplementedError(self.stan_model_path)
                 
@@ -248,7 +264,29 @@ class Simulator(BaseSimulator):
                     for ii, jj in enumerate(ind):
                         inds[ii+1] = jj-1
                     var[tuple(inds)] = df[key%val].values
+                #if var.ndim==2:
+                #    var = var[..., np.newaxis]  # make sure it's (Nsample, N, D)
                 data_feed2[par] = var
+            
+            """
+            # pars_combined has shape (Nsample, N, TotalD)
+            # for the i-th patient, (Nsample, TotalD), generate samples from its approximate Gaussian distribution, which has (Nsample2, TotalD)
+            # combine them, to get (Nsample2, N, TotalD)
+            pars_combined = np.concatenate([data_feed2[par] for par in pars], axis=-1)
+            Nsample2 = 10#00
+            pars_combined2 = []
+            for i in range(N):
+                pars_combined2.append(sample_from_multivariate_normal(pars_combined[:,i], Nsample2))
+            pars_combined2 = np.array(pars_combined2).transpose(1,0,2)
+            
+            data_feed3 = {'N_sample':Nsample2}
+            nd = 0
+            for pi, par in enumerate(pars):
+                data_feed3[par] = pars_combined2[...,nd:nd+pars_shape2[pi]]
+                if data_feed3[par].shape[-1]==1:
+                    data_feed3[par] = data_feed3[par][...,0]
+                nd += pars_shape2[pi]
+            """
         
         else:
             #if self.stan_model_path.endswith('_AR1.stan'):
