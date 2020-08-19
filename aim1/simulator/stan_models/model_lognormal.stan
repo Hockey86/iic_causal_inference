@@ -17,17 +17,17 @@ parameters {
     real<lower=0> sigma_alpha;
     vector<lower=0>[ND] sigma_b;
     
-    vector<lower=0, upper=336>[N] t0;  // max 7 days (7*24*2) (0.5h/step)
+    //vector<lower=0, upper=336>[N] t0;  // max 7 days (7*24*2) (0.5h/step)
     vector[N] mu;
     vector<lower=0>[N] sigma;
     vector<lower=0>[N] alpha;
     matrix<lower=0>[N,ND] b;
     
     //real<lower=0> sigma_epsilon;
-    matrix[N,T] A;
 }
 
 model {
+    matrix[N,T] A;
     matrix[N,T] p;
     
     vector[N*T] p_flatten;
@@ -59,21 +59,21 @@ model {
     //sigma_epsilon ~ normal(0, 0.01);
     
     for (t in 1:T) {
-        tmp = log(t+t0)-mu;
-        A[:,t] ~ normal( alpha .* exp(-(tmp .* tmp) ./ (2* (sigma .* sigma))) - (D[t] .* b)*ones_b, 0.01);
+        tmp = log(t)-mu;
+        A[:,t] = alpha .* exp(-(tmp .* tmp) ./ (2* (sigma .* sigma))) - (D[t] .* b)*ones_b;
     }
     
     // clip At
-    //for (t in 1:T) {
-    //    for (i in 1:N) {
-    //        if (A[i,t]<-12) {
-    //            A[i,t] = -12;
-    //        }
-    //        else if (A[i,t]>12) {
-    //            A[i,t] = 12;
-    //        }
-    //    }
-    //}
+    for (t in 1:T) {
+        for (i in 1:N) {
+            if (A[i,t]<-12) {
+                A[i,t] = -12;
+            }
+            else if (A[i,t]>12) {
+                A[i,t] = 12;
+            }
+        }
+    }
     
     p = inv_logit(A);
     

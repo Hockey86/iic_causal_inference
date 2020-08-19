@@ -20,7 +20,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 sns.set()
-from simulator import Simulator
+from simulator import *
 
 
 # In[2]:
@@ -355,54 +355,37 @@ C = (C-Cmean)/Cstd
 #D = D/Dmax
 """
 
-#sio.savemat('CDE.mat', {'C':C, 'D':D, 'E':Pobs})
+sio.savemat('data_before_fit.mat', {'C':C, 'D':D, 'E':Eobs, 'P':Pobs})
 
 # # define and infer model
 
-model_type = 'AR2'
-#model_type = 'lognormal'
+# baseline model
+
+#model_type = 'baseline'
+#model_type = 'AR2'
+model_type = 'lognormal'
 
 max_iter = 1000
 save_path = 'results/model_fit_%s.pkl'%model_type
-if model_type=='AR1':
-    T0 = 1
-    simulator = Simulator('stan_models/model_AR1.stan', W, T0=T0, max_iter=max_iter, random_state=random_state)
-    simulator.fit(D, Eobs, save_path=save_path)
-    Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
-elif model_type=='AR2':
-    T0 = 2
-    simulator = Simulator('stan_models/model_AR2.stan', W, T0=T0, max_iter=max_iter, random_state=random_state)
+if model_type=='baseline':
+    simulator = BaselineSimulator(2, W, random_state=random_state)
+    simulator.fit(D, Eobs)
+    Ep_sim = simulator.predict(D, Pobs)
+elif model_type in ['AR1', 'AR2']:
+    T0 = int(model_type[2:])
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=T0, max_iter=max_iter, random_state=random_state)
     simulator.fit(D, Eobs, save_path=save_path)
     Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
 elif model_type=='lognormal':
     simulator = Simulator('stan_models/model_lognormal.stan', W, max_iter=max_iter, random_state=random_state)
     simulator.fit(D, Eobs, save_path=save_path)
+    #simulator.load_model(save_path)
     Ep_sim = simulator.predict(D, training=True)
 
 
-# baseline
-
-
-#baseline = BaselineSimulator(Tinit)
-#baseline.fit(D, Eobs)
-#Ep_bl = baseline.predict(D)
-"""
-# first decide which value to carry forward
-# it should be the (Tcomb-1)-th, but it can be NaN, search backwards until non-NaN
-for tt in range(Tcomb-1,-1,-1):
-    if not np.isnan(Pobstr[-1][tt]):
-        break
-Epte_baseline = np.random.binomial(W, Pobstr[-1][tt], size=len(Ppte))
-Epte_baseline = Epte_baseline/W
-Epte_baseline = np.array([Epte_baseline]*(T-tt)).T
-Epte_baseline = np.c_[np.array([Pobstr[-1][:tt]]*len(Ppte)), Epte_baseline]
-    
-Ep_te_baseline.append(Epte_baseline)
-"""
-
+import pdb;pdb.set_trace()
 with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
-                 #'Ep_baseline':Ep_bl,
                  'E':Eobs, 'D':D,
                  'sids':sids}, ff)
 

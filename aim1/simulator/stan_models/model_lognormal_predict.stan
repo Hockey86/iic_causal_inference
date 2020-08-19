@@ -12,7 +12,7 @@ data {
     //vector<lower=0>[ND] sigma_b;
     
     int N_sample;
-    vector[N] t0[N_sample];
+    //vector[N] t0[N_sample];
     vector[N] mu[N_sample];
     vector[N] sigma[N_sample];
     vector[N] alpha[N_sample];
@@ -35,7 +35,7 @@ generated quantities {
     
     for (i in 1:N_sample) {
         for (t in 1:T) {
-            tmp = log(t+t0[i])-mu[i];
+            tmp = log(t)-mu[i];//+t0[i]
             P_output[i][:,t] = alpha[i] .* exp(-(tmp .* tmp) ./ (2* (sigma[i] .* sigma[i]))) - (D[t] .* b[i])*ones_b;
         }
         
