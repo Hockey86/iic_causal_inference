@@ -32,7 +32,7 @@ class BaseSimulator(object):
             self.stan_model, self.fit_res = pickle.load(f)
         return self
         
-    def score(self, D, E, Ep, method='loglikelihood', return_list=False, TstRMSE=8):
+    def score(self, D, E, Ep, method='loglikelihood', TstRMSE=8):
         """
         E: [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         Ep: [0-1], list of arrays, with different lengths. Each element has shape (Nsim, T[i])
@@ -45,7 +45,7 @@ class BaseSimulator(object):
         
         metrics = []
         for i in range(N):
-            Ei = E[i].flatten()
+            Ei = E[i]
             Epi = Ep[i]
             metric = []
             for j in range(len(Epi)):
@@ -61,10 +61,7 @@ class BaseSimulator(object):
             metrics.append(np.array(metric))
         metrics = np.array(metrics)
         
-        if return_list:
-            return metrics
-        else:
-            return np.mean(metrics, axis=0)
+        return np.mean(metrics, axis=1)
     
     
 class BaselineSimulator(BaseSimulator):

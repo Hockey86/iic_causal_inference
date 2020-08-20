@@ -18,7 +18,7 @@ parameters {
     vector<lower=0>[ND] sigma_b;
     
     //vector<lower=0, upper=336>[N] t0;  // max 7 days (7*24*2) (0.5h/step)
-    vector[N] mu;
+    vector<upper=5.8>[N] mu;  // max 7 days ln(7*24*2) (0.5h/step)
     vector<lower=0>[N] sigma;
     vector<lower=0>[N] alpha;
     matrix<lower=0>[N,ND] b;

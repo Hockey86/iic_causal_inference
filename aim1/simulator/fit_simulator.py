@@ -9,6 +9,7 @@
 from itertools import groupby
 import os
 import pickle
+import sys
 import timeit
 import scipy.io as sio
 from scipy.special import logit
@@ -344,26 +345,32 @@ print(sorted([len(x) for x in D]))
 
 random_state = 2020
     
-"""
 # standardize features
+"""
 Cmean = C.mean(axis=0)
 Cstd = C.std(axis=0)
 C = (C-Cmean)/Cstd
-#D_nan = np.array(D)
-#D_nan[D_nan==0] = np.nan
-#Dmax  = np.nanpercentile(D_nan, 95, axis=(0,1))
-#D = D/Dmax
 """
-
-sio.savemat('data_before_fit.mat', {'C':C, 'D':D, 'E':Eobs, 'P':Pobs})
+Dmax = []
+for di in range(D[0].shape[-1]):
+    dd = np.concatenate([x[:,di] for x in D])
+    dd[dd==0] = np.nan
+    Dmax.append(np.nanpercentile(dd,95))
+Dmax = np.array(Dmax)
+for i in range(len(D)):
+    D[i] = D[i]/Dmax
 
 # # define and infer model
 
 # baseline model
 
 #model_type = 'baseline'
+#model_type = 'AR1'
 #model_type = 'AR2'
-model_type = 'lognormal'
+#model_type = 'lognormal'
+model_type = str(sys.argv[1])
+all_model_types = ['baseline', 'AR1', 'AR2', 'lognormal']
+assert model_type in all_model_types, 'Unknown model_type `%s`. Must be one of %s.'%(model_type, str(all_model_types))
 
 max_iter = 1000
 save_path = 'results/model_fit_%s.pkl'%model_type
@@ -382,10 +389,9 @@ elif model_type=='lognormal':
     #simulator.load_model(save_path)
     Ep_sim = simulator.predict(D, training=True)
 
-
-import pdb;pdb.set_trace()
 with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
-                 'E':Eobs, 'D':D,
+                 'E':Eobs, 'P':Pobs,
+                 'Dscaled':D, 'Dmax':Dmax,
                  'sids':sids}, ff)
 
