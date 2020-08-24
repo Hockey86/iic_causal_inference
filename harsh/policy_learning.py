@@ -5,8 +5,6 @@ Created on Sun Aug 23 17:31:00 2020
 
 @author: harspari
 """
-
-import fake_sim
 import numpy as np
 import scipy
 import scipy.optimize as opt
@@ -15,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
 
+import functools
 import itertools
 import sys
 import sklearn.pipeline
@@ -22,50 +21,6 @@ import sklearn.preprocessing
 
 from sklearn.linear_model import SGDRegressor
 from sklearn.kernel_approximation import RBFSampler
-
-# def eval_regime( sim, D, reward, gamma ):
-#     E = sim(D)
-#     T = len(E)
-#     V = np.zeros((T,))
-#     V[-1] = reward(E[-1],D[-1])
-#     for t in range(T-2,-1,-1):
-#         V[t] = reward(E[t],D[t]) + gamma*V[t+1]
-#     return V
-
-# sim = lambda D: fake_sim.fake_simulator( fake_sim.params, fake_sim.E_init, D )[1]
-# reward = lambda s,a: -s - np.linalg.norm(a)
-# gamma = 0.9999
-
-# V_curr = eval_regime(sim, fake_sim.D, reward, gamma)
-# print(V_curr[0])
-
-# V0 = lambda D: -1*eval_regime(sim, D.reshape(-1,2), reward, gamma)[0]
-
-# res = opt.minimize( V0, fake_sim.D.reshape(-1,1), method='COBYLA' )
-    
-# IICopt = sim(res.x.reshape(-1,2))
-# print(-V0(res.x))
-
-# p, E, Dc = fake_sim.fake_simulator( fake_sim.params, fake_sim.E_init, fake_sim.D ) 
-# p1, E1, Dc1 = fake_sim.fake_simulator( fake_sim.params, fake_sim.E_init, res.x.reshape(-1,2)) 
-
-
-# fig,ax = plt.subplots(1+Dc1.shape[1],1,sharex=True,figsize=(15,10),gridspec_kw = {'height_ratios':[10]+[1 for i in range(Dc1.shape[1])]})
-
-# ax[0].plot(np.arange(0,Dc1.shape[0]),E1, '--', c='black',label='Optimal Observed')
-# ax[0].plot(np.arange(0,Dc.shape[0]),E, c='black',label='Original Observed')
-
-# ax[0].plot(np.arange(0,Dc1.shape[0]),p1, '--', c='b',label='Optimal Probability')
-# ax[0].plot(np.arange(0,Dc.shape[0]),p, c='#ff7f0e',label='Original Probability')
-
-# # ax[0].fill_between(x=np.arange(2,T),y1=p.mean(axis=0)[2:]+p.std(axis=0)[2:],y2=p.mean(axis=0)[2:]-p.std(axis=0)[2:],alpha=0.25,color='red')
-# ax[0].legend()
-# ax[0].set_title('IIC Ratio')
-# for i in range(1,1+Dc1.shape[1]):
-#     y = Dc1[:,i-1]
-#     ax[i].imshow(y[np.newaxis,:], cmap="plasma", aspect="auto")
-#     ax[i].set_title('Drug-%d'%(i))
-    
 
 class Estimator():
     """
@@ -122,7 +77,7 @@ class Simulator():
 
     def __init__(self, params, E_init):
         self.a0, self.a, self.b0, self.b, self.k, self.lag, self.T, self.W = params
-        self.num_actions = 2**self.k
+        self.num_actions = 2**len(self.k)
         self.E_init = E_init
         self.p = self.E_init/self.W
         self.E = self.E_init
@@ -138,15 +93,27 @@ class Simulator():
         E = np.random.binomial(self.W, p)
         self.E = np.concatenate((self.E,[E]))
         self.p = np.concatenate((self.p,[p]))
+        r = self.reward(self.E,self.D)
+        return self.E[-1:], r
         
     def reset(self):
         self.p = self.E_init/self.W
         self.E = self.E_init
         self.D = np.zeros( (self.lag,len(self.k)) )
+        return self.E[-1:]
+        
+    def reward(self,E,D):
+        return -(E[-1]/self.W) #- np.linalg.norm(D[-1])
     
-        
-        
-
+    def run_sim(self,T,D):
+        for t in range(T):
+            self.step(D[t])
+            
+    def run_sim_with_policy(self,T,pi):
+        for t in range(T):
+            d = pi([self.E[-1]])
+            self.step(d)
+    
 def make_epsilon_greedy_policy(estimator, epsilon, nA):
     """
     Creates an epsilon-greedy policy based on a given Q-function approximator and epsilon.
@@ -170,6 +137,12 @@ def make_epsilon_greedy_policy(estimator, epsilon, nA):
     return policy_fn
 
 def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0, epsilon=0.1, epsilon_decay=1.0):
+    def decimalToBinary(n,bits):
+        a = bin(n).replace("0b", "")
+        b = ''
+        if len(a)!=bits:
+            b = functools.reduce(lambda x,y: x+y,['0' for i in range(bits-len(a))])
+        return b+a
     """
     Q-Learning algorithm for fff-policy TD control using Function Approximation.
     Finds the optimal greedy policy while following an epsilon-greedy policy.
@@ -216,7 +189,8 @@ def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0
                 action = next_action
             
             # Take a step
-            next_state, reward = sim.step(action)
+            actionPrime = np.array(list(decimalToBinary(action,bits=int(np.log2(sim.num_actions)))),dtype=int)
+            next_state, reward = sim.step( actionPrime )
     
             # Update statistics
             episode_rewards[i_episode] += reward
@@ -235,12 +209,12 @@ def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0
             
             # Update the function approximator using our target
             estimator.update(state, action, td_target)
-            
-            print("\rStep {} @ Episode {}/{} ({})".format(t, i_episode + 1, num_episodes, last_reward), end="")
+            if i_episode%20==0:
+                print("\rStep {} @ Episode {}/{} ({})".format(t, i_episode + 1, num_episodes, last_reward), end="")
                 
             if t >= episode_length:
                 break
                 
             state = next_state
     
-    return episode_rewards
+    return episode_rewards, policy
