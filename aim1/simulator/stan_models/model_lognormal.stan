@@ -40,10 +40,8 @@ model {
     vector[N] sigma_b_vec;
     
     vector[ND] ones_b;
-    vector[N] zeros;
     vector[N] tmp;
     ones_b = rep_vector(1, ND);
-    zeros = rep_vector(0, N);
     
     mu_mu_vec = rep_vector(mu_mu, N);
     sigma_mu_vec = rep_vector(sigma_mu, N);

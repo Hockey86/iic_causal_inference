@@ -15,7 +15,6 @@ data {
 parameters {
     real mu_a0;
     real mu_a1;
-    vector[ND] mu_b;
     
     real<lower=0> sigma_a0;
     real<lower=0> sigma_a1;
@@ -35,7 +34,6 @@ model {
     
     vector[N] mu_a0_vec;
     vector[N] mu_a1_vec;
-    vector[N] mu_b_vec;
     vector[N] sigma_a0_vec;
     vector[N] sigma_a1_vec;
     vector[N] sigma_b_vec;
@@ -49,9 +47,8 @@ model {
     sigma_a1_vec = rep_vector(sigma_a1, N);
     a1 ~ normal(mu_a1_vec, sigma_a1_vec);
     for (i in 1:ND) {
-        mu_b_vec = rep_vector(mu_b[i], N);
         sigma_b_vec = rep_vector(sigma_b[i], N);
-        b[:,i] ~ normal(mu_b_vec, sigma_b_vec);
+        b[:,i] ~ normal(0, sigma_b_vec);
     }
     
     for (t in 1:T0) { A[:,t] = A_start[:,t]; }
