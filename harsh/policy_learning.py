@@ -6,6 +6,7 @@ Created on Sun Aug 23 17:31:00 2020
 @author: harspari
 """
 import numpy as np
+import pandas as pd
 import scipy
 import scipy.optimize as opt
 from sklearn.ensemble import RandomForestRegressor
@@ -18,24 +19,32 @@ import itertools
 import sys
 import sklearn.pipeline
 import sklearn.preprocessing
+import torch
 
 from sklearn.linear_model import SGDRegressor
 from sklearn.kernel_approximation import RBFSampler
+from sklearn import tree
 
 class Estimator():
     """
     Value Function approximator. 
     """
     
-    def __init__(self,num_actions,s_init=np.zeros((1,))):
+    def __init__(self,num_actions,s_init=np.zeros((10,1)),method='SGD'):
         # We create a separate model for each action in the environment's
         # action space. Alternatively we could somehow encode the action
         # into the features, but this way it's easier to code up.
         self.models = []
         for _ in range(num_actions):
-            model = SGDRegressor(learning_rate="constant")
+            if method=='DT':
+                model = tree.DecisionTreeRegressor(max_depth=4)
+            if method=='RF':
+                model = RandomForestRegressor()
+            if method=='SGD':
+                model = SGDRegressor(learning_rate="constant",alpha=1000)
             # We need to call partial_fit once to initialize the model
-            model.partial_fit([s_init], [0])
+            model.fit(s_init, np.ones(10)*0)
+            # print(model.coef_)
             self.models.append(model)
     
     def predict(self, s, a=None):
@@ -54,16 +63,30 @@ class Estimator():
         """
         # features = self.featurize_state(s)
         if not a:
-            return np.array([m.predict([s])[0] for m in self.models])
+            return np.array([m.predict(s)[0] for m in self.models])
         else:
-            return self.models[a].predict([s])[0]
+            return self.models[a].predict(s)[0]
     
     def update(self, s, a, y):
         """
         Updates the estimator parameters for a given state and action towards
         the target y.
         """
-        self.models[a].partial_fit([s], [y])
+        df = pd.DataFrame()
+        df['s'] = s
+        df['a'] = a
+        df['y'] = y
+        a_unique = np.unique(df['a'])
+        for a in a_unique:
+            df_a = df.loc[df['a']==a]
+            s_a = df_a['s'].to_numpy().reshape(-1,1)
+            y_a = df_a['y'].to_numpy()
+            # print('Correlation %.3f'%(np.correlate(s_a[:,0],y_a)))
+            # print('Shape (%d)'%(df_a.shape[0]))
+            # print((a,self.models[a].coef_))
+            if df_a.shape[0]>10:
+                self.models[a].fit(s_a, y_a)
+            # print((a,self.models[a].coef_))
         
 class Simulator():
     def drug_concentration(self, d_ts, k):
@@ -103,7 +126,7 @@ class Simulator():
         return self.E[-1:]
         
     def reward(self,E,D):
-        return -(E[-1]/self.W) #- np.linalg.norm(D[-1])
+        return  -(E[-1]/self.W) - np.linalg.norm(D[-1]) #
     
     def run_sim(self,T,D):
         for t in range(T):
@@ -130,13 +153,17 @@ def make_epsilon_greedy_policy(estimator, epsilon, nA):
     """
     def policy_fn(observation):
         A = np.ones(nA, dtype=float) * epsilon / nA
-        q_values = estimator.predict(observation)
+        q_values = estimator.predict([observation])
         best_action = np.argmax(q_values)
         A[best_action] += (1.0 - epsilon)
+        # A = (scipy.special.expit(q_values)+epsilon)/np.sum((scipy.special.expit(q_values)+epsilon))
+        # print('\n')
+        # print((q_values))
+        # print((A))
         return A
     return policy_fn
 
-def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0, epsilon=0.1, epsilon_decay=1.0):
+def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0, epsilon=0.1, epsilon_decay=1.0, alpha=0.1):
     def decimalToBinary(n,bits):
         a = bin(n).replace("0b", "")
         b = ''
@@ -173,13 +200,18 @@ def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0
         
         # Reset the environment and pick the first action
         state = sim.reset()
-        
+        states = []
+        td_targets = []
+        actions = []
         # Only used for SARSA, not Q-Learning
         next_action = None
         
         # One step in the environment
         for t in itertools.count():
-                        
+            
+            states.append(state)
+            
+            q_values = estimator.predict([state])
             # Choose an action to take
             # If we're using SARSA we already decided in the previous step
             if next_action is None:
@@ -188,6 +220,7 @@ def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0
             else:
                 action = next_action
             
+            actions.append(action)
             # Take a step
             actionPrime = np.array(list(decimalToBinary(action,bits=int(np.log2(sim.num_actions)))),dtype=int)
             next_state, reward = sim.step( actionPrime )
@@ -196,23 +229,27 @@ def q_learning(sim, estimator, episode_length, num_episodes, discount_factor=1.0
             episode_rewards[i_episode] += reward
             
             # TD Update
-            q_values_next = estimator.predict(next_state)
+            q_values_next = estimator.predict([next_state])
             
             # Use this code for Q-Learning
             # Q-Value TD Target
             td_target = reward + discount_factor * np.max(q_values_next)
             
+            
             # Use this code for SARSA TD Target for on policy-training:
-            # next_action_probs = policy(next_state)
-            # next_action = np.random.choice(np.arange(len(next_action_probs)), p=next_action_probs)             
-            # td_target = reward + discount_factor * q_values_next[next_action]
+            next_action_probs = policy(next_state)
+            next_action = np.random.choice(np.arange(len(next_action_probs)), p=next_action_probs)             
+            td_target = alpha*(reward + discount_factor * q_values_next[next_action]) + (1-alpha)*q_values[action]
+            
+            td_targets.append(td_target)
             
             # Update the function approximator using our target
-            estimator.update(state, action, td_target)
+    
             if i_episode%20==0:
                 print("\rStep {} @ Episode {}/{} ({})".format(t, i_episode + 1, num_episodes, last_reward), end="")
                 
             if t >= episode_length:
+                estimator.update(states, actions, td_targets)
                 break
                 
             state = next_state

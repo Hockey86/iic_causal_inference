@@ -36,7 +36,7 @@ def decimalToBinary(n,bits):
 np.random.seed(1080)
 
 W = 1800
-T = 48
+T = 100
 lag = 2
 
 E_init = np.array([900, 950])
@@ -75,8 +75,8 @@ for i in range(1,1+sim.Dc.shape[1]):
     ax[i].imshow(y[np.newaxis,:], cmap="plasma", aspect="auto")
     ax[i].set_title('Drug-%d'%(i))
 '''
-estimator = pl.Estimator(sim.num_actions)
-episode_rewards, policy = pl.q_learning(sim, estimator, episode_length=100, num_episodes=50, discount_factor=1.0, epsilon=0.1, epsilon_decay=1.0)
+estimator = pl.Estimator(sim.num_actions,method='RF')
+episode_rewards, policy = pl.q_learning(sim, estimator, episode_length=1000, num_episodes=1000, discount_factor=1.0, epsilon=0.2, epsilon_decay=0.99, alpha=0.1)
 
 fig =  plt.figure()
 plt.plot(episode_rewards)
@@ -89,16 +89,19 @@ sim.run_sim_with_policy(T-2,pi)
 
 IIC =  sim.E/sim.W
 
-fig,ax = plt.subplots(1+D.shape[1],1,sharex=True,figsize=(15,10),gridspec_kw = {'height_ratios':[10]+[1 for i in range(D.shape[1])]})
+fig,ax = plt.subplots(1+2*D.shape[1],1,sharex=True,figsize=(15,20),gridspec_kw = {'height_ratios':[10]+[1 for i in range(2*D.shape[1])]})
 ax[0].plot(np.arange(0,T),IIC, c='black',label='Observed')
 ax[0].plot(np.arange(0,T),sim.p, c='#ff7f0e',label='Probability')
 # ax[0].fill_between(x=np.arange(2,T),y1=p.mean(axis=0)[2:]+p.std(axis=0)[2:],y2=p.mean(axis=0)[2:]-p.std(axis=0)[2:],alpha=0.25,color='red')
 ax[0].legend()
 ax[0].set_title('IIC Ratio')
-for i in range(1,1+sim.Dc.shape[1]):
-    y = sim.Dc[:,i-1]
+for i in range(1,1+2*sim.Dc.shape[1],2):
+    y = sim.Dc[:,(i-1)//2]
+    y1 = sim.D[:,(i-1)//2]
     ax[i].imshow(y[np.newaxis,:], cmap="plasma", aspect="auto")
-    ax[i].set_title('Drug-%d'%(i))
+    ax[i].set_title('Drug-Concentration-%d'%(i//2 + 1))
+    ax[i+1].imshow(y1[np.newaxis,:], cmap="plasma", aspect="auto")
+    ax[i+1].set_title('Drug-%d'%(i//2 + 1))
 
 # def eval_regime( sim, D, reward, gamma ):
 #     E = sim(D)
