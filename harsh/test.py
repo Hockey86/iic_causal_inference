@@ -36,7 +36,7 @@ def decimalToBinary(n,bits):
 np.random.seed(1080)
 
 W = 1800
-T = 100
+T = 48
 lag = 2
 
 E_init = np.array([900, 950])
@@ -73,7 +73,7 @@ ax[0].set_title('IIC Ratio')
 for i in range(1,1+sim.Dc.shape[1]):
     y = sim.Dc[:,i-1]
     ax[i].imshow(y[np.newaxis,:], cmap="plasma", aspect="auto")
-    ax[i].set_title('Drug-%d'%(i))
+    ax[i].set_title('Drug-Concentration-%d'%(i))
 '''
 estimator = pl.Estimator(sim.num_actions,method='RF')
 episode_rewards, policy = pl.q_learning(sim, estimator, episode_length=1000, num_episodes=1000, discount_factor=1.0, epsilon=0.2, epsilon_decay=0.99, alpha=0.1)
