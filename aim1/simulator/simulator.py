@@ -44,24 +44,20 @@ class BaseSimulator(object):
         assert method in available_metrics, 'Unknown method: %s. Available: %s'%(method, str(available_metrics))
         
         metrics = []
-        for i in range(N):
-            Ei = E[i]
-            Epi = Ep[i]
-            metric = []
-            for j in range(len(Epi)):
-                if method=='loglikelihood':
+        if method=='loglikelihood':
+            for i in range(N):
+                Ei = E[i]
+                Epi = Ep[i]
+                metric = []
+                for j in range(len(Epi)):
                     goodids = Ei>=0
                     metric.append( np.mean(binom.logpmf(Ei[goodids], self.W, np.clip(Epi[j][goodids],1e-6,1-1e-6))) )
-                elif method=='stRMSE':
-                    metric_st = []
-                    for t in range(len(Ei)-TstRMSE):
-                        tmp = self.predict(D[i][t:t+TstRMSE], training=True, Pstart=Epi[j][t:t+TstRMSE])
-                        metric_st.append( rmse(Ei[t:t+TstRMSE], self.W, tmp) )
-                    metric.append(np.mean(metric_st))
-            metrics.append(np.array(metric))
+                metrics.append(np.array(metric))
+        elif method=='stRMSE':
+            raise NotImplementedError
         metrics = np.array(metrics)
         
-        return np.mean(metrics, axis=1)
+        return metrics
     
     
 class BaselineSimulator(BaseSimulator):
@@ -223,24 +219,41 @@ class Simulator(BaseSimulator):
         # load prediction model
         self.predict_stan_model = self._get_stan_model(self.stan_model_path.replace('.stan', '_predict.stan'))
         
+        model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
         if training:
             # assume N=self.N
             N = len(D)
             ND = D[0].shape[-1]
             
             # set model-specific parameters as input data
-            if self.stan_model_path.endswith('_AR1.stan'):
+            if model_type in ['AR1', 'PAR1']:
                 pars = ['a0','a1','b']
                 pars_shape = [(N,), (N,), (N, ND)]
                 pars_shape2 = [1,1,ND]
-            elif self.stan_model_path.endswith('_AR2.stan'):
+            #elif model_type in ['NBAR1']:
+            #    pars = ['a0','a1','phi','b']
+            #    pars_shape = [(N,), (N,), (N,), (N, ND)]
+            #    pars_shape2 = [1,1,1,ND]
+            elif model_type in ['AR2', 'PAR2']:
                 pars = ['a0','a1','a2','b']
                 pars_shape = [(N,), (N,), (N,), (N, ND)]
                 pars_shape2 = [1,1,1,ND]
-            elif self.stan_model_path.endswith('_lognormal.stan'):
+            #elif model_type in ['NBAR2']:
+            #    pars = ['a0','a1','a2','phi','b']
+            #    pars_shape = [(N,), (N,), (N,), (N,), (N, ND)]
+            #    pars_shape2 = [1,1,1,1,ND]
+            elif model_type=='lognormal':
                 pars = ['mu', 'alpha', 'sigma', 'b']#'t0',
                 pars_shape = [(N,), (N,), (N,), (N, ND)]#(N,),
                 pars_shape2 = [1,1,1,ND]
+            elif model_type=='lognormalAR1':
+                pars = ['a0', 'a1', 'mu', 'sigma', 'b']#'t0',
+                pars_shape = [(N,), (N,), (N,), (N,), (N, ND)]#(N,),
+                pars_shape2 = [1,1,1,1,ND]
+            elif model_type=='lognormalAR2':
+                pars = ['a0', 'a1', 'a2', 'mu', 'sigma', 'b']#'t0',
+                pars_shape = [(N,), (N,), (N,), (N,), (N,), (N, ND)]#(N,),
+                pars_shape2 = [1,1,1,1,1,ND]
             else:
                 raise NotImplementedError(self.stan_model_path)
                 
@@ -292,9 +305,12 @@ class Simulator(BaseSimulator):
             
         
         # also add AR-specific initial values
-        if self.stan_model_path.endswith('_AR1.stan') or \
-           self.stan_model_path.endswith('_AR2.stan'):
-            A_start = logit(np.clip(Pstart, 1e-6, 1-1e-6))
+        if Pstart is not None and 'AR' in model_type:
+            if 'PAR' in model_type or 'NBAR' in model_type:
+                func = np.log
+            else:
+                func = logit
+            A_start = func(np.clip(Pstart, 1e-6, 1-1e-6))
             data_feed2['A_start'] = A_start
             data_feed2['T0'] = Pstart.shape[-1]
             

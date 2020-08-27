@@ -364,13 +364,7 @@ for i in range(len(D)):
 
 # baseline model
 
-#model_type = 'baseline'
-#model_type = 'AR1'
-#model_type = 'AR2'
-#model_type = 'lognormal'
 model_type = str(sys.argv[1])
-all_model_types = ['baseline', 'AR1', 'AR2', 'lognormal']
-assert model_type in all_model_types, 'Unknown model_type `%s`. Must be one of %s.'%(model_type, str(all_model_types))
 
 max_iter = 1000
 save_path = 'results/model_fit_%s.pkl'%model_type
@@ -378,16 +372,17 @@ if model_type=='baseline':
     simulator = BaselineSimulator(2, W, random_state=random_state)
     simulator.fit(D, Eobs)
     Ep_sim = simulator.predict(D, Pobs)
-elif model_type in ['AR1', 'AR2']:
-    T0 = int(model_type[2:])
+elif 'lognormal' in model_type:
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, max_iter=max_iter, random_state=random_state)
+    #simulator.load_model(save_path)
+    simulator.fit(D, Eobs, save_path=save_path)
+    Ep_sim = simulator.predict(D, training=True)
+elif 'AR' in model_type:
+    T0 = int(model_type[-1:])
     simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=T0, max_iter=max_iter, random_state=random_state)
+    #simulator.load_model(save_path)
     simulator.fit(D, Eobs, save_path=save_path)
     Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
-elif model_type=='lognormal':
-    simulator = Simulator('stan_models/model_lognormal.stan', W, max_iter=max_iter, random_state=random_state)
-    simulator.fit(D, Eobs, save_path=save_path)
-    #simulator.load_model(save_path)
-    Ep_sim = simulator.predict(D, training=True)
 
 with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
