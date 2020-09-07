@@ -134,7 +134,7 @@ def preprocess(sid):  # previsously called patient_data
 
     #PK
     drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam', 
-                    'pentobarbital','phenobarbital',# 'phenytoin',
+                    #'pentobarbital','phenobarbital',# 'phenytoin',
                     'propofol', 'valproate']
     Ddose = p[drugs_tostudy].fillna(0).to_numpy().T
     D = drug_concentration(Ddose, PK_K).T
@@ -362,7 +362,10 @@ for i in range(len(D)):
 
 # # define and infer model
 
-# baseline model
+# get cluster
+#TODO K-means
+cluster = pd.read_csv('Cluster.csv', header=None)
+cluster = np.argmax(cluster.values, axis=1)
 
 model_type = str(sys.argv[1])
 
@@ -372,18 +375,20 @@ if model_type=='baseline':
     simulator = BaselineSimulator(2, W, random_state=random_state)
     simulator.fit(D, Eobs)
     Ep_sim = simulator.predict(D, Pobs)
+    
 elif 'lognormal' in model_type:
     simulator = Simulator('stan_models/model_%s.stan'%model_type, W, max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
-    simulator.fit(D, Eobs, save_path=save_path)
-    Ep_sim = simulator.predict(D, training=True)
+    simulator.fit(D, Eobs, cluster, save_path=save_path)
+    Ep_sim = simulator.predict(D, cluster)
+    
 elif 'AR' in model_type:
     T0 = int(model_type[-1:])
     simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=T0, max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
-    simulator.fit(D, Eobs, save_path=save_path)
-    Ep_sim = simulator.predict(D, training=True, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
-
+    simulator.fit(D, Eobs, cluster, save_path=save_path)
+    Ep_sim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
+import pdb;pdb.set_trace()
 with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
                  'E':Eobs, 'P':Pobs,

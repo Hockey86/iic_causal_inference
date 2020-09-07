@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 
 W = 900
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
-          'pentobarbital','phenobarbital',# 'phenytoin',
+          #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
 ND = len(Dnames)
-models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
+#models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
+models = ['AR1']
 
 
 with open('../results/model_fit_lognormal.pkl', 'rb') as f:
@@ -27,7 +28,7 @@ sigma = np.array([df['sigma[%d]'%i].values for i in range(1,N+1)]).mean(axis=1)
 for model in models:
     print(model)
     
-    figure_dir = 'simulation_global_figures_no_drug/%s'%model
+    figure_dir = 'simulation_global_figures/%s'%model
     if not os.path.exists(figure_dir):
         os.mkdir(figure_dir)
     with open('../results/results_%s.pickle'%model, 'rb') as ff:
@@ -49,9 +50,11 @@ for model in models:
         fig = plt.figure(figsize=(9,6))
         
         ax1 = fig.add_subplot(211)
-        ax1.plot(tt, np.mean(Ep[si], axis=0)*100, c='r', label='simulated')
-        ax1.plot(tt, np.percentile(Ep[si],2.5,axis=0)*100, c='r')
-        ax1.plot(tt, np.percentile(Ep[si],97.5,axis=0)*100, c='r')
+        random_ids = np.random.choice(len(Ep[si]), 3, replace=False)
+        ax1.plot(tt, Ep[si][random_ids].T*100, c='r')
+        ax1.plot(tt, np.mean(Ep[si], axis=0)*100, c='b', label='simulated')
+        ax1.plot(tt, np.percentile(Ep[si],2.5,axis=0)*100, c='b')
+        ax1.plot(tt, np.percentile(Ep[si],97.5,axis=0)*100, c='b')
         ax1.plot(tt, P, c='k', label='observed')
         if model == 'lognormal':
             T = len(E[si])
@@ -64,6 +67,7 @@ for model in models:
         ax1.set_ylabel('IIC burden (%)')
         ax1.set_ylim([-2,102])
         
+        #TODO use imshow
         ax2 = fig.add_subplot(212)
         for di in range(ND):
             if np.max(Dscaled[si][:,di])>0:

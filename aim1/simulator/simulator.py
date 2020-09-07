@@ -13,33 +13,22 @@ def rmse(x, y):
     return np.sqrt(np.mean((x-y)**2))
 
 
-def sample_from_multivariate_normal(X, size):
-    """
-    X: shape=(N, D), which are used to generate mean vector and cov matrix
-    size: number of samples to be drew
-    returns
-    array of shape (size, D)
-    """
-    means = np.mean(X, axis=0)
-    cov = np.cov(X.T)
-    res = np.random.multivariate_normal(means, cov, size=size)
-    return res
-
-
 class BaseSimulator(object):
     def load_model(self, save_path):
+        print('loading model from %s'%save_path)
         with open(save_path, 'rb') as f:
             self.stan_model, self.fit_res = pickle.load(f)
         return self
 
-    def score(self, D, E, Ep, method='loglikelihood', TstRMSE=8):
+    def score(self, D, E, Ep=None, cluster=None, Ncluster=None, method='loglikelihood', TstRMSE=8):
         """
         E: [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         Ep: [0-1], list of arrays, with different lengths. Each element has shape (Nsim, T[i])
         """
         N = len(E)
-        assert len(Ep)==N, 'len(E)!=len(E predicted)'
         assert len(D)==N, 'len(E)!=len(D)'
+        if Ep is not None:
+            assert len(Ep)==N, 'len(E)!=len(E predicted)'
         available_metrics = ['loglikelihood', 'stRMSE']
         assert method in available_metrics, 'Unknown method: %s. Available: %s'%(method, str(available_metrics))
 
@@ -53,9 +42,26 @@ class BaseSimulator(object):
                     goodids = Ei>=0
                     metric.append( np.mean(binom.logpmf(Ei[goodids], self.W, np.clip(Epi[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
+            
         elif method=='stRMSE':
-            raise NotImplementedError
-        metrics = np.array(metrics)
+            if hasattr(self, 'T0'):
+                T0 = self.T0
+            else:
+                T0 = 0
+            for i in range(N):
+                Ei = E[i]
+                Di = D[i]
+                if len(Ei)-TstRMSE<=T0:
+                    continue
+                metric = []
+                for t in range(T0, len(Ei)-TstRMSE):
+                    if np.any(Ei[t-T0:t+TstRMSE]<0):
+                        metric.append([np.nan]*500)  #TODO assume 500
+                    else:
+                        Ep = self.predict([Di[t-T0:t+TstRMSE]], cluster[[i]], Ncluster=Ncluster, Pstart=Ei[t-T0:t].reshape(1,-1)/self.W)
+                        metric.append([rmse(Ei[t:t+TstRMSE]/self.W, Ep[0][k,T0:]) for k in range(len(Ep[0]))])
+                metrics.append(np.nanmean(metric, axis=0))
+        metrics = np.array(metrics)  # (#pt, #posterior sample)
 
         return metrics
 
@@ -150,7 +156,7 @@ class Simulator(BaseSimulator):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         E: IIC burden, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
-        cluster: Cluster assignment for the patients in one hot encoding form Each element has shape (N, Ncluster)
+        cluster: Cluster assignment for the patients has shape(N,), with values [0,1,2...]
         """
         ## pad to same length
         D, E, P = self._pad_to_same_length(D,E)
@@ -158,6 +164,7 @@ class Simulator(BaseSimulator):
         self.N = len(D)
         self.T = D.shape[1]
         self.ND = D.shape[-1]
+        self.Ncluster = len(set(cluster.flatten()))
         Ts = np.array([np.sum(~np.isnan(x)) for x in P])
 
         E_flatten = E[:,self.T0:].flatten()
@@ -189,8 +196,8 @@ class Simulator(BaseSimulator):
                      'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
                      #'C':C,
                      'A_start':logit(Pstart),
-                     'cluster':cluster,
-                     'NClust':cluster.shape[1]
+                     'NClust':len(set(cluster)),
+                     'cluster':cluster+1,  # +1 for stan
                      }
 
         ## sampling
@@ -210,7 +217,7 @@ class Simulator(BaseSimulator):
 
         return self
 
-    def predict(self, D, training=False, Pstart=None):
+    def predict(self, D, cluster, Ncluster=None, Pstart=None):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         training:
@@ -223,89 +230,53 @@ class Simulator(BaseSimulator):
         self.predict_stan_model = self._get_stan_model(self.stan_model_path.replace('.stan', '_predict.stan'))
 
         model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
-        if training:
-            # assume N=self.N
-            N = len(D)
-            ND = D[0].shape[-1]
-
-            # set model-specific parameters as input data
-            if model_type in ['AR1', 'PAR1']:
-                pars = ['a0','a1','b']
-                pars_shape = [(N,), (N,), (N, ND)]
-                pars_shape2 = [1,1,ND]
-            #elif model_type in ['NBAR1']:
-            #    pars = ['a0','a1','phi','b']
-            #    pars_shape = [(N,), (N,), (N,), (N, ND)]
-            #    pars_shape2 = [1,1,1,ND]
-            elif model_type in ['AR2', 'PAR2']:
-                pars = ['a0','a1','a2','b']
-                pars_shape = [(N,), (N,), (N,), (N, ND)]
-                pars_shape2 = [1,1,1,ND]
-            #elif model_type in ['NBAR2']:
-            #    pars = ['a0','a1','a2','phi','b']
-            #    pars_shape = [(N,), (N,), (N,), (N,), (N, ND)]
-            #    pars_shape2 = [1,1,1,1,ND]
-            elif model_type=='lognormal':
-                pars = ['mu', 'alpha', 'sigma', 'b']#'t0',
-                pars_shape = [(N,), (N,), (N,), (N, ND)]#(N,),
-                pars_shape2 = [1,1,1,ND]
-            elif model_type=='lognormalAR1':
-                pars = ['a0', 'a1', 'mu', 'sigma', 'b']#'t0',
-                pars_shape = [(N,), (N,), (N,), (N,), (N, ND)]#(N,),
-                pars_shape2 = [1,1,1,1,ND]
-            elif model_type=='lognormalAR2':
-                pars = ['a0', 'a1', 'a2', 'mu', 'sigma', 'b']#'t0',
-                pars_shape = [(N,), (N,), (N,), (N,), (N,), (N, ND)]#(N,),
-                pars_shape2 = [1,1,1,1,1,ND]
-            else:
-                raise NotImplementedError(self.stan_model_path)
-
-            df = self.fit_res.to_dataframe(pars=pars)
-            Nsample = len(df)
-            data_feed2 = {'N_sample':Nsample}  # data_feed2 is model-specific
-
-            # the following is a general code to convert['par[?,?]'] into array of shape (?,?),
-            # and then assign to data_feed['par']
-            # since it is very general, so it is not easy to read
-            for pi, par in enumerate(pars):
-                shape = pars_shape[pi]
-                var = np.zeros((Nsample,)+shape)
-                for ind in product(*[range(1,x+1) for x in shape]):
-                    key = '%s[' + ','.join(['%d']*len(ind)) + ']'
-                    val = (par,) + ind
-                    inds = [slice(None)]*var.ndim
-                    for ii, jj in enumerate(ind):
-                        inds[ii+1] = jj-1
-                    var[tuple(inds)] = df[key%val].values
-                #if var.ndim==2:
-                #    var = var[..., np.newaxis]  # make sure it's (Nsample, N, D)
-                data_feed2[par] = var
-
-            """
-            # pars_combined has shape (Nsample, N, TotalD)
-            # for the i-th patient, (Nsample, TotalD), generate samples from its approximate Gaussian distribution, which has (Nsample2, TotalD)
-            # combine them, to get (Nsample2, N, TotalD)
-            pars_combined = np.concatenate([data_feed2[par] for par in pars], axis=-1)
-            Nsample2 = 10#00
-            pars_combined2 = []
-            for i in range(N):
-                pars_combined2.append(sample_from_multivariate_normal(pars_combined[:,i], Nsample2))
-            pars_combined2 = np.array(pars_combined2).transpose(1,0,2)
-
-            data_feed3 = {'N_sample':Nsample2}
-            nd = 0
-            for pi, par in enumerate(pars):
-                data_feed3[par] = pars_combined2[...,nd:nd+pars_shape2[pi]]
-                if data_feed3[par].shape[-1]==1:
-                    data_feed3[par] = data_feed3[par][...,0]
-                nd += pars_shape2[pi]
-            """
-
+        N = len(D)
+        ND = D[0].shape[-1]
+        
+        # set model-specific parameters as input data
+        if model_type in ['AR1', 'PAR1']:
+            pars = ['a0','a1','b']
+            pars_shape = [(N,), (N,), (N,ND)]
+            pars_shape2 = [1,1,ND]
+        #elif model_type in ['NBAR1']:
+        elif model_type in ['AR2', 'PAR2']:
+            pars = ['a0','a1','a2','b']
+            pars_shape = [(N,), (N,), (N,), (N,ND)]
+            pars_shape2 = [1,1,1,ND]
+        #elif model_type in ['NBAR2']:
+        elif model_type=='lognormal':
+            pars = ['mu', 'alpha', 'sigma', 'b']#'t0',
+            pars_shape = [(N,), (N,), (N,), (N,ND)]
+            pars_shape2 = [1,1,1,ND]
+        elif model_type=='lognormalAR1':
+            pars = ['a0', 'a1', 'mu', 'sigma', 'b']#'t0',
+            pars_shape = [(N,), (N,), (N,), (N,), (N,ND)]
+            pars_shape2 = [1,1,1,1,ND]
+        elif model_type=='lognormalAR2':
+            pars = ['a0', 'a1', 'a2', 'mu', 'sigma', 'b']#'t0',
+            pars_shape = [(N,), (N,), (N,), (N,), (N,), (N,ND)]
+            pars_shape2 = [1,1,1,1,1,ND]
         else:
-            #if self.stan_model_path.endswith('_AR1.stan'):
-            #    pars = ['mu_a0','mu_a1','mu_b']
-            raise NotImplementedError('training == False')
+            raise NotImplementedError(self.stan_model_path)
 
+        df = self.fit_res.to_dataframe(pars=pars)
+        Nsample = len(df)
+        data_feed2 = {'N_sample':Nsample}  # data_feed2 is model-specific
+
+        # the following is a general code to convert['par[?,?]'] into array of shape (?,?),
+        # and then assign to data_feed['par']
+        # since it is very general, so it is not easy to read
+        for pi, par in enumerate(pars):
+            shape = pars_shape[pi]
+            var = np.zeros((Nsample,)+shape)
+            for ind in product(*[range(1,x+1) for x in shape]):
+                key = '%s[' + ','.join(['%d']*len(ind)) + ']'
+                val = (par,) + ind
+                inds = [slice(None)]*var.ndim
+                for ii, jj in enumerate(ind):
+                    inds[ii+1] = jj-1
+                var[tuple(inds)] = df[key%val].values
+            data_feed2[par] = var
 
         # also add AR-specific initial values
         if Pstart is not None and 'AR' in model_type:
@@ -324,11 +295,15 @@ class Simulator(BaseSimulator):
         #assert self.ND==ND, 'ND is not the same as in fit'
         #assert T>self.T0, 'T<=T0'
 
+        if hasattr(self, 'Ncluster'):
+            Ncluster = self.Ncluster
         data_feed = {'W':self.W,
                      'N':N,
                      'T':T,
                      'ND':ND,
                      'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
+                     'NClust':Ncluster,
+                     'cluster':cluster+1,  # +1 for stan
                      }
 
         # combine model-specific and model-unspecific input data
@@ -353,3 +328,4 @@ class Simulator(BaseSimulator):
         P = [P[:,i,:Ts[i]] for i in range(N)]
 
         return P
+        

@@ -1,14 +1,18 @@
 from itertools import product
 import pickle
 import numpy as np
+import pandas as pd
 from simulator import *
 
 
-models = ['lognormal', 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-metrics = ['loglikelihood']#, 'stRMSE']#, 'CI95 Coverage'
+models = ['AR1']#['lognormal', 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
+metrics = ['stRMSE']#, 'loglikelihood', 'CI95 Coverage'
 W = 900
 max_iter = 1000
 random_state = 2020
+
+cluster = pd.read_csv('Cluster.csv', header=None)
+cluster = np.argmax(cluster.values, axis=1)
 
 perf = {}
 for model, metric in product(models, metrics):
@@ -16,6 +20,7 @@ for model, metric in product(models, metrics):
         res = pickle.load(ff)
     Ep = res['Ep_sim']
     E = res['E']
+    P = res['P']
     Dscaled = res['Dscaled']
     sids = res['sids']
     
@@ -32,18 +37,23 @@ for model, metric in product(models, metrics):
         perf[(model, metric)] = simulator.score(
                                     [x[T0:] for x in Dscaled],
                                     [x[T0:] for x in E],
-                                    [x[:,T0:] for x in Ep],
+                                    Ep=[x[:,T0:] for x in Ep],
                                     method=metric)
+        perf_ = np.nanmean(perf[(model, metric)], axis=0)
+        print('[%s, %s]: %.2f [%.2f -- %.2f]'%(model, metric, perf_.mean(), np.nanpercentile(perf_, 2.5), np.nanpercentile(perf_, 97.5)))
     elif metric=='stRMSE':
         for TstRMSE in range(1,13):
-            perf[(model, 'stRMSE_%s'%TstRMSE)] = simulator.score(
+            perf[(model, 'stRMSE(%d)'%TstRMSE)] = simulator.score(
                                         [x[T0:] for x in Dscaled],
                                         [x[T0:] for x in E],
-                                        [x[:,T0:] for x in Ep],
+                                        cluster=cluster,
+                                        Ncluster=len(set(cluster)),
                                         method=metric, TstRMSE=TstRMSE)
-    perf_ = perf[(model, metric)].mean(axis=0)
-    print('%s: %.2f [%.2f -- %.2f]'%((model, metric), perf_.mean(), np.percentile(perf_, 2.5), np.percentile(perf_, 97.5)))
+        for TstRMSE in range(1,13):
+            perf_ = np.nanmean(perf[(model, 'stRMSE(%d)'%TstRMSE)], axis=0)
+            print('[%s, %s(%d)]: %.2f [%.2f -- %.2f]'%(model, metric, TstRMSE, perf_.mean(), np.nanpercentile(perf_, 2.5), np.nanpercentile(perf_, 97.5)))
 
 perf['sids'] = sids
-with open('performance_metrics.pickle', 'wb') as ff:
+with open('results/performance_metrics.pickle', 'wb') as ff:
     pickle.dump(perf, ff)
+#plt.close();plt.plot(range(1,13),[np.nanmean(perf[('AR1','stRMSE_%d'%i)]) for i in range(1,13)], 'o-');plt.xlabel('step');plt.ylabel('AR1 stRMSE');plt.xticks(range(1,13));plt.grid(True);plt.show()

@@ -10,13 +10,15 @@ data {
     real sample_weights[not_empty_num];
     matrix[N,ND] D[T];
     matrix[N,T0] A_start;
+    int NClust;
+    matrix[N,NClust] cluster;
 }
 
 parameters {
     real mu_a0;
     real mu_a1;
     real mu_a2;
-    vector[ND] mu_b;
+    vector<lower=0>[ND] mu_b;
     
     real<lower=0> sigma_a0;
     real<lower=0> sigma_a1;
@@ -26,7 +28,7 @@ parameters {
     vector[N] a0;
     vector<lower=-1,upper=1>[N] a2;
     vector[N] a1_raw;
-    matrix<lower=0>[N,ND] b;
+    matrix<lower=0>[ND,NClust] b;
 }
 
 transformed parameters {
