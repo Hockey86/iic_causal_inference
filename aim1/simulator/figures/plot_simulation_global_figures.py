@@ -6,15 +6,15 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
-W = 900
+W = 300
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
           #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['AR1']
+models = ['AR2']
 
-
+"""
 with open('../results/model_fit_lognormal.pkl', 'rb') as f:
     stan_model, fit_res = pickle.load(f)   
 N = 82 
@@ -23,6 +23,7 @@ df = fit_res.to_dataframe(pars=['alpha', 'mu', 'sigma'])#'t0',
 alpha = np.array([df['alpha[%d]'%i].values for i in range(1,N+1)]).mean(axis=1)
 mu    = np.array([df['mu[%d]'%i].values for i in range(1,N+1)]).mean(axis=1)
 sigma = np.array([df['sigma[%d]'%i].values for i in range(1,N+1)]).mean(axis=1)
+"""
 
     
 for model in models:
@@ -41,7 +42,7 @@ for model in models:
     sids = res['sids']
     
     for si, sid in enumerate(tqdm(sids)):
-        tt = np.arange(len(E[si]))/2  # 1 step is half an hour
+        tt = np.arange(len(E[si]))*W*2/3600
         P = np.array(E[si]).astype(float)
         P[P==-1] = np.nan
         P = P/W*100

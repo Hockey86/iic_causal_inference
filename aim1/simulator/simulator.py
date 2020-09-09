@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import binom
 from scipy.special import expit as sigmoid
 from scipy.special import logit
+from statsmodels.tsa.arima_model import ARMA
 from hashlib import md5
 import pystan
 
@@ -17,7 +18,7 @@ class BaseSimulator(object):
     def load_model(self, save_path):
         print('loading model from %s'%save_path)
         with open(save_path, 'rb') as f:
-            self.stan_model, self.fit_res = pickle.load(f)
+            self.stan_model, self.fit_res, self.ma_models = pickle.load(f)
         return self
 
     def score(self, D, E, Ep=None, cluster=None, Ncluster=None, method='loglikelihood', TstRMSE=8):
@@ -102,12 +103,13 @@ class BaselineSimulator(BaseSimulator):
 
 
 class Simulator(BaseSimulator):
-    def __init__(self, stan_model_path, W, max_iter=1000, T0=0, random_state=None):
+    def __init__(self, stan_model_path, W, K_MA, max_iter=1000, T0=0, random_state=None):
         self.stan_model_path = stan_model_path
         self.W = W
         self.max_iter = max_iter
         self.T0 = T0
         self.random_state = random_state
+        self.K_MA = K_MA
 
     def _get_stan_model(self, model_path):
         with open(model_path, 'r') as f:
@@ -152,14 +154,14 @@ class Simulator(BaseSimulator):
         else:
             return D2, E2, P2
 
-    def fit(self, D, E, cluster,save_path=None):
+    def fit(self, D_, E_, cluster,save_path=None):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         E: IIC burden, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         cluster: Cluster assignment for the patients has shape(N,), with values [0,1,2...]
         """
         ## pad to same length
-        D, E, P = self._pad_to_same_length(D,E)
+        D, E, P = self._pad_to_same_length(D_, E_)
 
         self.N = len(D)
         self.T = D.shape[1]
@@ -171,6 +173,7 @@ class Simulator(BaseSimulator):
         not_empty_ids = np.where(E_flatten!=-1)[0]
         not_empty_num = len(not_empty_ids)
         E_flatten_nonan = E_flatten[not_empty_ids]
+        #E_flatten_nonan = np.clip(E_flatten_nonan, 1, self.W-1)
 
         # generate sample weights that balances different lengths
         sample_weights = np.zeros_like(E[:,self.T0:]) + 1/(Ts-self.T0).reshape(-1,1)#
@@ -182,7 +185,8 @@ class Simulator(BaseSimulator):
 
         ## feed data
 
-        Pstart = np.clip(P[:,:self.T0], 1e-6, 1-1e-6)
+        P2 = np.clip(P, 1e-6, 1-1e-6)
+        P2[np.isnan(P2)] = -1
         data_feed = {'W':self.W,
                      'N':self.N,
                      'T':self.T,
@@ -193,9 +197,10 @@ class Simulator(BaseSimulator):
                      'not_empty_ids':not_empty_ids+1,  # +1 for stan
                      'sample_weights':sample_weights,
                      'Eobs_flatten_nonan':E_flatten_nonan,
+                     #'Pobs':P2,
                      'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
                      #'C':C,
-                     'A_start':logit(Pstart),
+                     'A_start':logit(P2[:,:self.T0]),  # assumes the first T0 steps contains no nan
                      'NClust':len(set(cluster)),
                      'cluster':cluster+1,  # +1 for stan
                      }
@@ -206,18 +211,34 @@ class Simulator(BaseSimulator):
 
         self.fit_res = self.stan_model.sampling(data=data_feed,
                                        iter=self.max_iter, verbose=True,
-                                       chains=1, seed=self.random_state)
-        #print(self.fit_res.stansummary(pars=['mu_mu','sigma_mu','sigma_sigma','sigma_alpha', 'sigma_b']))
-
+                                       chains=1, seed=self.random_state) #print(self.fit_res.stansummary(pars=['mu_mu','sigma_mu','sigma_sigma','sigma_alpha', 'sigma_b']))
+        
+        # fit MA to residual
+        Ep = self.predict(D_, cluster, Pstart=P2[:,:self.T0], MA=False)
+        self.ma_models = []
+        for i in range(len(Ep)):
+            try:
+                tti = Ep[i].shape[1]
+                ids = ~np.isnan(P[i][:tti])
+                if ids.sum()<10:
+                    raise ValueError
+                Ap = logit(np.clip(Ep[i].mean(axis=0), 1e-6, 1-1e-6))
+                residual = logit(P2[i][:tti][ids]) - Ap[ids]
+                ma_model = ARMA(residual, order=(0, self.K_MA))
+                ma_model = ma_model.fit(disp=False)
+                self.ma_models.append(ma_model)
+            except Exception as ee:
+                self.ma_models.append(None)
+                
         # save
         if save_path is None:
             save_path = 'model_fit.pkl'
         with open(save_path, 'wb') as f:
-            pickle.dump([self.stan_model, self.fit_res], f)
+            pickle.dump([self.stan_model, self.fit_res, self.ma_models], f)
 
         return self
 
-    def predict(self, D, cluster, Ncluster=None, Pstart=None):
+    def predict(self, D, cluster, Ncluster=None, Pstart=None, MA=True):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         training:
@@ -327,5 +348,15 @@ class Simulator(BaseSimulator):
 
         P = [P[:,i,:Ts[i]] for i in range(N)]
 
+        if MA:
+            for i in range(len(P)):
+                if self.ma_models[i] is None:
+                    continue
+                tti = P[i].shape[1]
+                Ap = logit(np.clip(P[i], 1e-6, 1-1e-6))
+                for j in range(len(P[i])):
+                    ww = np.random.randn(tti)*np.sqrt(self.ma_models[i].sigma2)
+                    ww2 = np.convolve(ww, self.ma_models[i].params[1:], mode='same')+self.ma_models[i].params[0]
+                    P[i][j] = sigmoid(Ap[j] + ww2)
         return P
         

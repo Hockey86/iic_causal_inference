@@ -48,6 +48,8 @@ halflife = pd.DataFrame({
 
 halflife = halflife.append(np.log(2) / halflife.rename(index={'t1/2':'k'}))
 
+W = 300
+K_MA = 6
 
 # In[4]:
 
@@ -87,9 +89,9 @@ def drug_concentration(d_ts,k):
 # In[5]:
 
 
-def patient(file):
-    window = 900
-    step   = 900
+def patient(file, W):
+    window = W
+    step   = W
     
     #if '.mat' in file:
     s = sio.loadmat(os.path.join(DATA_DIR, file))
@@ -126,7 +128,7 @@ def preprocess(sid):  # previsously called patient_data
 
     #fetch the data
     file = sid + '.mat'
-    p = patient(file)
+    p = patient(file, W)
 
     #setting up the data
     response_tostudy = ['iic_burden']
@@ -172,7 +174,6 @@ sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 's
 # exclude sid887 because there is no overlap between drug and IIC
 # , 'sid887'
 
-W=900
 for sid in tqdm(sids):
     Pobs_, D_, C_ = preprocess(sid)
     Eobs_ = Pobs_*W
@@ -191,9 +192,6 @@ C = np.array(C)
 
 
 #plt.plot(E[0])
-print(Pobs[0])
-print(Eobs[0])
-print(C.shape)
 print(sorted([len(x) for x in D]))
 
 """
@@ -209,79 +207,161 @@ for i in tqdm(range(len(sids))):
 
 # In[8]:
 
+if W==900:
+    ind = sids.index('sid1038') # T=1506
+    Pobs[ind] = Pobs[ind][1469:]
+    Eobs[ind] = Eobs[ind][1469:]
+    D[ind] = D[ind][1469:]
 
-ind = sids.index('sid1038') # T=1506
-Pobs[ind] = Pobs[ind][1469:]
-Eobs[ind] = Eobs[ind][1469:]
-D[ind] = D[ind][1469:]
+    ind = sids.index('sid91') # T=657
+    Pobs[ind] = Pobs[ind][602:]
+    Eobs[ind] = Eobs[ind][602:]
+    D[ind] = D[ind][602:]
 
-ind = sids.index('sid91') # T=657
-Pobs[ind] = Pobs[ind][602:]
-Eobs[ind] = Eobs[ind][602:]
-D[ind] = D[ind][602:]
+    ind = sids.index('sid30') # T=453
+    Pobs[ind] = Pobs[ind][395:]
+    Eobs[ind] = Eobs[ind][395:]
+    D[ind] = D[ind][395:]
 
-ind = sids.index('sid30') # T=453
-Pobs[ind] = Pobs[ind][395:]
-Eobs[ind] = Eobs[ind][395:]
-D[ind] = D[ind][395:]
+    ind = sids.index('sid1966') # T=334
+    Pobs[ind] = Pobs[ind][300:]
+    Eobs[ind] = Eobs[ind][300:]
+    D[ind] = D[ind][300:]
 
-ind = sids.index('sid1966') # T=334
-Pobs[ind] = Pobs[ind][300:]
-Eobs[ind] = Eobs[ind][300:]
-D[ind] = D[ind][300:]
+    ind = sids.index('sid395') # T=247
+    Pobs[ind] = Pobs[ind][196:]
+    Eobs[ind] = Eobs[ind][196:]
+    D[ind] = D[ind][196:]
 
-ind = sids.index('sid395') # T=247
-Pobs[ind] = Pobs[ind][196:]
-Eobs[ind] = Eobs[ind][196:]
-D[ind] = D[ind][196:]
+    ind = sids.index('sid1025') # T=245
+    Pobs[ind] = Pobs[ind][178:]
+    Eobs[ind] = Eobs[ind][178:]
+    D[ind] = D[ind][178:]
 
-ind = sids.index('sid1025') # T=245
-Pobs[ind] = Pobs[ind][178:]
-Eobs[ind] = Eobs[ind][178:]
-D[ind] = D[ind][178:]
+    ind = sids.index('sid36')
+    Pobs[ind] = Pobs[ind][:48]
+    Eobs[ind] = Eobs[ind][:48]
+    D[ind] = D[ind][:48]
 
-ind = sids.index('sid36')
-Pobs[ind] = Pobs[ind][:48]
-Eobs[ind] = Eobs[ind][:48]
-D[ind] = D[ind][:48]
+    ind = sids.index('sid801')
+    Pobs[ind] = Pobs[ind][33:]
+    Eobs[ind] = Eobs[ind][33:]
+    D[ind] = D[ind][33:]
 
-ind = sids.index('sid801')
-Pobs[ind] = Pobs[ind][33:]
-Eobs[ind] = Eobs[ind][33:]
-D[ind] = D[ind][33:]
+    ind = sids.index('sid960')
+    Pobs[ind] = Pobs[ind][72:]
+    Eobs[ind] = Eobs[ind][72:]
+    D[ind] = D[ind][72:]
 
-ind = sids.index('sid960')
-Pobs[ind] = Pobs[ind][72:]
-Eobs[ind] = Eobs[ind][72:]
-D[ind] = D[ind][72:]
+    ind = sids.index('sid1006')
+    Pobs[ind] = Pobs[ind][47:]
+    Eobs[ind] = Eobs[ind][47:]
+    D[ind] = D[ind][47:]
 
-ind = sids.index('sid1006')
-Pobs[ind] = Pobs[ind][47:]
-Eobs[ind] = Eobs[ind][47:]
-D[ind] = D[ind][47:]
+    ind = sids.index('sid1022')
+    Pobs[ind] = Pobs[ind][:39]
+    Eobs[ind] = Eobs[ind][:39]
+    D[ind] = D[ind][:39]
 
-ind = sids.index('sid1022')
-Pobs[ind] = Pobs[ind][:39]
-Eobs[ind] = Eobs[ind][:39]
-D[ind] = D[ind][:39]
+    ind = sids.index('sid456')
+    Pobs[ind] = Pobs[ind][99:137]
+    Eobs[ind] = Eobs[ind][99:137]
+    D[ind] = D[ind][99:137]
 
-ind = sids.index('sid456')
-Pobs[ind] = Pobs[ind][99:137]
-Eobs[ind] = Eobs[ind][99:137]
-D[ind] = D[ind][99:137]
+    ind = sids.index('sid965')
+    Pobs[ind] = Pobs[ind][88:]
+    Eobs[ind] = Eobs[ind][88:]
+    D[ind] = D[ind][88:]
 
-ind = sids.index('sid965')
-Pobs[ind] = Pobs[ind][88:]
-Eobs[ind] = Eobs[ind][88:]
-D[ind] = D[ind][88:]
+    ind = sids.index('sid915')
+    Pobs[ind] = Pobs[ind][93:]
+    Eobs[ind] = Eobs[ind][93:]
+    D[ind] = D[ind][93:]
+elif W==300:
+    ind = sids.index('sid1038') # T=1506
+    Pobs[ind] = Pobs[ind][4407:]
+    Eobs[ind] = Eobs[ind][4407:]
+    D[ind] = D[ind][4407:]
 
-ind = sids.index('sid915')
-Pobs[ind] = Pobs[ind][93:]
-Eobs[ind] = Eobs[ind][93:]
-D[ind] = D[ind][93:]
+    ind = sids.index('sid91') # T=657
+    Pobs[ind] = Pobs[ind][1811:]
+    Eobs[ind] = Eobs[ind][1811:]
+    D[ind] = D[ind][1811:]
 
+    ind = sids.index('sid30') # T=453
+    Pobs[ind] = Pobs[ind][1189:]
+    Eobs[ind] = Eobs[ind][1189:]
+    D[ind] = D[ind][1189:]
+
+    ind = sids.index('sid1966') # T=334
+    Pobs[ind] = Pobs[ind][902:]
+    Eobs[ind] = Eobs[ind][902:]
+    D[ind] = D[ind][902:]
+
+    ind = sids.index('sid395') # T=247
+    Pobs[ind] = Pobs[ind][588:]
+    Eobs[ind] = Eobs[ind][588:]
+    D[ind] = D[ind][588:]
+
+    ind = sids.index('sid1025') # T=245
+    Pobs[ind] = Pobs[ind][536:]
+    Eobs[ind] = Eobs[ind][536:]
+    D[ind] = D[ind][536:]
+
+    ind = sids.index('sid36')
+    Pobs[ind] = Pobs[ind][:144]
+    Eobs[ind] = Eobs[ind][:144]
+    D[ind] = D[ind][:144]
+
+    ind = sids.index('sid801')
+    Pobs[ind] = Pobs[ind][103:]
+    Eobs[ind] = Eobs[ind][103:]
+    D[ind] = D[ind][103:]
+
+    ind = sids.index('sid960')
+    Pobs[ind] = Pobs[ind][217:]
+    Eobs[ind] = Eobs[ind][217:]
+    D[ind] = D[ind][217:]
+
+    ind = sids.index('sid1006')
+    Pobs[ind] = Pobs[ind][144:]
+    Eobs[ind] = Eobs[ind][144:]
+    D[ind] = D[ind][144:]
+
+    ind = sids.index('sid1022')
+    Pobs[ind] = Pobs[ind][:116]
+    Eobs[ind] = Eobs[ind][:116]
+    D[ind] = D[ind][:116]
+
+    ind = sids.index('sid456')
+    Pobs[ind] = Pobs[ind][298:411]
+    Eobs[ind] = Eobs[ind][298:411]
+    D[ind] = D[ind][298:411]
+
+    ind = sids.index('sid965')
+    Pobs[ind] = Pobs[ind][264:]
+    Eobs[ind] = Eobs[ind][264:]
+    D[ind] = D[ind][264:]
+
+    ind = sids.index('sid915')
+    Pobs[ind] = Pobs[ind][279:]
+    Eobs[ind] = Eobs[ind][279:]
+    D[ind] = D[ind][279:]
+else:
+    raise ValueError('W=%d'%W)
+
+"""
+remove_sids = ['sid1038', 'sid91', 'sid30', 'sid1966', 'sid395',
+               'sid1025', 'sid36', 'sid801', 'sid960', 'sid1006',
+               'sid1022', 'sid456', 'sid965', 'sid915']
+keep_ids = [i for i in range(len(sids)) if sids[i] not in remove_sids]
+Pobs = [Pobs[i] for i in keep_ids]
+Eobs = [Eobs[i] for i in keep_ids]
+D = [D[i] for i in keep_ids]
+C = C[keep_ids]
+sids = [sids[i] for i in keep_ids]
+"""
 print(sorted([len(x) for x in D]))
-
 
 # # remove flat drug at the beginning or end
 
@@ -342,7 +422,6 @@ for i in range(len(sids)):
 print(sorted([len(x) for x in D]))
 
 
-
 random_state = 2020
     
 # standardize features
@@ -366,6 +445,7 @@ for i in range(len(D)):
 #TODO K-means
 cluster = pd.read_csv('Cluster.csv', header=None)
 cluster = np.argmax(cluster.values, axis=1)
+#cluster = cluster[keep_ids]
 
 model_type = str(sys.argv[1])
 
@@ -377,18 +457,18 @@ if model_type=='baseline':
     Ep_sim = simulator.predict(D, Pobs)
     
 elif 'lognormal' in model_type:
-    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, max_iter=max_iter, random_state=random_state)
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, K_MA, max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
     simulator.fit(D, Eobs, cluster, save_path=save_path)
     Ep_sim = simulator.predict(D, cluster)
     
 elif 'AR' in model_type:
     T0 = int(model_type[-1:])
-    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=T0, max_iter=max_iter, random_state=random_state)
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, K_MA, T0=T0, max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
     simulator.fit(D, Eobs, cluster, save_path=save_path)
     Ep_sim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
-import pdb;pdb.set_trace()
+
 with open('results/results_%s.pickle'%model_type, 'wb') as ff:
     pickle.dump({'Ep_sim':Ep_sim,
                  'E':Eobs, 'P':Pobs,
