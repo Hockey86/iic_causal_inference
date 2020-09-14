@@ -43,7 +43,7 @@ class BaseSimulator(object):
                     goodids = Ei>=0
                     metric.append( np.mean(binom.logpmf(Ei[goodids], self.W, np.clip(Epi[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
-            
+
         elif method=='stRMSE':
             if hasattr(self, 'T0'):
                 T0 = self.T0
@@ -183,10 +183,42 @@ class Simulator(BaseSimulator):
         ## load model
         self.stan_model = self._get_stan_model(self.stan_model_path)
 
-        ## feed data
 
-        P2 = np.clip(P, 1e-6, 1-1e-6)
+        print('E shape:',E.shape)
+
+        ii_obs = []
+        ii_mis = []
+
+        for i in range(0, E.shape[0]):
+            current_ii_obs = []
+            current_ii_mis = []
+            for j in range(0, E.shape[1]):
+                if E[i,j] >=0:
+                    current_ii_obs.append(j)
+                else:
+                    current_ii_mis.append(j)
+            ii_obs.append(current_ii_obs)
+            ii_mis.append(current_ii_mis)
+
+
+        N_obs = []
+        N_mis = []
+
+        for i in range(0, len(ii_obs)):
+
+            N_obs.append(len(ii_obs[i]))
+            N_mis.append(len(ii_mis[i]))
+
+
+
+
+
+        ## feed data
+        print('data')
+
+        P2 = np.clip(P, 1e-4, 1-1e-4)
         P2[np.isnan(P2)] = -1
+
         data_feed = {'W':self.W,
                      'N':self.N,
                      'T':self.T,
@@ -198,13 +230,105 @@ class Simulator(BaseSimulator):
                      'sample_weights':sample_weights,
                      'Eobs_flatten_nonan':E_flatten_nonan,
                      #'Pobs':P2,
-                     'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
+                     'D': np.nan_to_num(D.transpose(1,0,2)),  # because matrix[N,ND] D[T];
                      #'C':C,
                      'A_start':logit(P2[:,:self.T0]),  # assumes the first T0 steps contains no nan
                      'NClust':len(set(cluster)),
-                     'cluster':cluster+1,  # +1 for stan
+                     'cluster':cluster[0:self.N] +1,
+
+
+                     'ii_obs': ii_obs,
+                     'ii_mis': ii_mis,
+                     'N_obs' : N_obs,
+                     'N_mis' : N_mis
+
+
+                     #'cluster':np.array([cluster[0:self.N]+1])  # +1 for stan
+                     #'cluster': [1,2,3,4,5,1,1,1,1]
                      }
 
+        print(E)
+        print(E.flatten())
+        E_flatten = E[:,self.T0:].flatten()
+
+        print('E_nonnan',len(E_flatten_nonan))
+
+        print(N_obs)
+
+        print('not_emtpyids;',not_empty_ids)
+
+        print(len(not_empty_ids))
+
+        patient_nonnan_len = []
+        for i in range(0,E.shape[0]):
+            patient_nonnan_len.append(np.sum(E[i,self.T0:] > -1))
+
+        print('Eflatte',E_flatten_nonan)
+
+        cum_patient_nonnan_len =  np.cumsum(patient_nonnan_len)
+        cum_patient_nonnan_len = np.insert(cum_patient_nonnan_len, 0,0)
+        cum_patient_nonnan_len  = cum_patient_nonnan_len[0:len(cum_patient_nonnan_len)-1]
+
+        print('nonlan',patient_nonnan_len)
+        print('cum; patient',cum_patient_nonnan_len)
+
+
+    # datafeed for concatinate missing data
+        data_feed = {'W':self.W,
+                     'N':self.N,
+                     'T':self.T,
+                     'T0':self.T0,
+                     'ND':self.ND,
+
+                     #'NC':C.shape[-1],
+                     'not_empty_num':not_empty_num,
+                     'sample_weights':sample_weights,
+                     'not_empty_ids':not_empty_ids+1,
+                     'Eobs_flatten_nonan':E_flatten_nonan,
+
+                     'total_nonnan_len': len(not_empty_ids),
+                     #'Pobs':P2,
+                     #'D': np.nan_to_num(D.transpose(1,0,2)),  # because matrix[N,ND] D[T];
+                     #'C':C,
+                     #'A_start':logit(P2[:,:self.T0]),  # assumes the first T0 steps contains no nan
+                     'NClust':len(set(cluster)),
+                     'cluster':cluster[0:self.N] +1,
+
+
+                     'patient_nonnan_len': patient_nonnan_len,
+                     'cum_patient_nonnan_len':cum_patient_nonnan_len,
+
+
+
+
+                    'D': np.nan_to_num(D.transpose(1,0,2)),  # because matrix[N,ND] D[T];
+                    #'C':C,
+                    'A_start':logit(P2[:,:self.T0])
+                     #'cluster':np.array([cluster[0:self.N]+1])  # +1 for stan
+                     #'cluster': [1,2,3,4,5,1,1,1,1]
+                     }
+
+
+        #Why are there nans in the D?!
+
+
+
+        # to avoid logit(-1) and logit(1)
+        #print(data_feed)
+        #P2[P2 <0.0001] = 0.0001
+        #P2[P2 >9.9999] = 9.9999
+        #print(P2[:,:self.T0])
+        #print(type(P2))
+        #print(logit(P2[:,:self.T0]))
+
+        sm = pystan.StanModel(file='/home/kentaro/github/iic_causal_inference/aim1/simulator/stan_models/AR1_missing2.stan')
+        fit = sm.sampling(data=data_feed, iter=1000 ,chains=1)
+
+        print(fit.stansummary())
+
+
+
+        #print(self.stan_model.sampling(data = data_feed))
         ## sampling
         if self.random_state is None:
             self.random_state = np.random.randint(10000)
@@ -212,7 +336,11 @@ class Simulator(BaseSimulator):
         self.fit_res = self.stan_model.sampling(data=data_feed,
                                        iter=self.max_iter, verbose=True,
                                        chains=1, seed=self.random_state) #print(self.fit_res.stansummary(pars=['mu_mu','sigma_mu','sigma_sigma','sigma_alpha', 'sigma_b']))
-        
+
+
+
+
+
         # fit MA to residual
         Ep = self.predict(D_, cluster, Pstart=P2[:,:self.T0], MA=False)
         self.ma_models = []
@@ -229,7 +357,7 @@ class Simulator(BaseSimulator):
                 self.ma_models.append(ma_model)
             except Exception as ee:
                 self.ma_models.append(None)
-                
+
         # save
         if save_path is None:
             save_path = 'model_fit.pkl'
@@ -253,7 +381,7 @@ class Simulator(BaseSimulator):
         model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
         N = len(D)
         ND = D[0].shape[-1]
-        
+
         # set model-specific parameters as input data
         if model_type in ['AR1', 'PAR1']:
             pars = ['a0','a1','b']
@@ -359,4 +487,3 @@ class Simulator(BaseSimulator):
                     ww2 = np.convolve(ww, self.ma_models[i].params[1:], mode='same')+self.ma_models[i].params[0]
                     P[i][j] = sigmoid(Ap[j] + ww2)
         return P
-        
