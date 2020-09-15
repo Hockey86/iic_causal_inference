@@ -14,6 +14,7 @@ import timeit
 import scipy.io as sio
 from scipy.special import logit
 from scipy.special import expit as sigmoid
+from sklearn.preprocessing import LabelEncoder
 import numpy as np
 import pandas as pd
 import scipy
@@ -27,9 +28,7 @@ from simulator import *
 # In[2]:
 
 
-#DATA_DIR = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
-
-DATA_DIR = '/home/kentaro/Dropbox/step1_output/'
+DATA_DIR = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
 
 
 # # define PK time constants for each drug
@@ -51,7 +50,6 @@ halflife = pd.DataFrame({
 halflife = halflife.append(np.log(2) / halflife.rename(index={'t1/2':'k'}))
 
 W = 300
-K_MA = 6
 
 # In[4]:
 
@@ -74,7 +72,7 @@ def logsigmoid(x):
     if type(x)==float or x.ndim==0:
         out = float(out)
     return out
-
+    
 
 def drug_concentration(d_ts,k):
     """
@@ -94,15 +92,12 @@ def drug_concentration(d_ts,k):
 def patient(file, W):
     window = W
     step   = W
-
+    
     #if '.mat' in file:
     s = sio.loadmat(os.path.join(DATA_DIR, file))
     human_iic = s['human_iic'][0].astype(float)
     spike = s['spike'][0].astype(float)
     drugs = s['drugs_weightnormalized'].astype(float)
-
-
-    #print('S:',s['artifact'])
     artifact = s['artifact'][0].astype(float)
     human_iic[artifact==1] = np.nan
     spike[artifact==1] = np.nan
@@ -140,20 +135,21 @@ def preprocess(sid):  # previsously called patient_data
     Eobs = p[response_tostudy].values.flatten()
 
     #PK
-    drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam',
+    drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam', 
                     #'pentobarbital','phenobarbital',# 'phenytoin',
                     'propofol', 'valproate']
     Ddose = p[drugs_tostudy].fillna(0).to_numpy().T
     D = drug_concentration(Ddose, PK_K).T
 
-    cov_tostudy = ['Age']
+    #cov_tostudy = ['Age']
     C = pd.read_csv(os.path.join(DATA_DIR, 'covariates.csv'))
-    C = C[C.Index==sid][cov_tostudy].iloc[0]
-
+    Cname = list(C.columns)
+    C = C[C.Index==sid].iloc[0]#[cov_tostudy]
+    
     #Eobs.shape = (T,)
     #D.shape = (T,#drug)
     #C.shape = (#covaraites,)
-    return Eobs, D, C
+    return Eobs, D, C, Cname
 
 
 # # generate data
@@ -176,14 +172,11 @@ sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 's
         'sid1025', 'sid1034', 'sid1038', 'sid1039', 'sid1055', 'sid1056', 'sid1063', 'sid1113',
         'sid1116', 'sid1337', 'sid1913', 'sid1915', 'sid1916', 'sid1917', 'sid1928', 'sid1956', 'sid1966']
 
-#sids = ['sid2', 'sid8','sid13', 'sid17', 'sid18','sid30', 'sid36', 'sid39', 'sid54']
-sids = ['sid2', 'sid8','sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 'sid54',
-        'sid56', 'sid69', 'sid77', 'sid82', 'sid88']
 # exclude sid887 because there is no overlap between drug and IIC
 # , 'sid887'
 
 for sid in tqdm(sids):
-    Pobs_, D_, C_ = preprocess(sid)
+    Pobs_, D_, C_, Cname = preprocess(sid)
     Eobs_ = Pobs_*W
     Eobs_[np.isnan(Eobs_)] = -1   # convert NaN to -1 for int dtype
     Eobs.append(np.round(Eobs_).astype(int))
@@ -192,7 +185,10 @@ for sid in tqdm(sids):
     C.append(C_)
 
 C = np.array(C)
-
+#sids = C[:,0].astype(str)
+C = C[:,1:].astype(float)
+Cname = Cname[1:]
+#sio.savemat('C.mat', {'C':C, 'Cname':Cname})
 
 # # print stats of the data
 
@@ -214,7 +210,6 @@ for i in tqdm(range(len(sids))):
 # # remove long gaps in data
 
 # In[8]:
-
 if W==900:
     ind = sids.index('sid1038') # T=1506
     Pobs[ind] = Pobs[ind][1469:]
@@ -285,8 +280,6 @@ if W==900:
     Pobs[ind] = Pobs[ind][93:]
     Eobs[ind] = Eobs[ind][93:]
     D[ind] = D[ind][93:]
-
-'''
 elif W==300:
     ind = sids.index('sid1038') # T=1506
     Pobs[ind] = Pobs[ind][4407:]
@@ -357,11 +350,8 @@ elif W==300:
     Pobs[ind] = Pobs[ind][279:]
     Eobs[ind] = Eobs[ind][279:]
     D[ind] = D[ind][279:]
-
 else:
     raise ValueError('W=%d'%W)
-'''
-
 """
 remove_sids = ['sid1038', 'sid91', 'sid30', 'sid1966', 'sid395',
                'sid1025', 'sid36', 'sid801', 'sid960', 'sid1006',
@@ -382,7 +372,7 @@ print(sorted([len(x) for x in D]))
 
 for i in range(len(sids)):
     d = D[i].sum(axis=1)
-
+    
     start = 0
     for gi, g in enumerate(groupby(d)):
         if gi==0:
@@ -392,7 +382,7 @@ for i in range(len(sids)):
                 start = ll
         else:
             break
-
+            
     end = 0
     for gi, g in enumerate(groupby(d[::-1])):
         if gi==0:
@@ -403,11 +393,11 @@ for i in range(len(sids)):
         else:
             break
     end = len(d)-end
-
+    
     Pobs[i] = Pobs[i][start:end]
     Eobs[i] = Eobs[i][start:end]
     D[i] = D[i][start:end]
-
+    
 print(sorted([len(x) for x in D]))
 
 
@@ -430,12 +420,12 @@ for i in range(len(sids)):
     Eobs[i] = Eobs[i][t:]
     Pobs[i] = Pobs[i][t:]
     D[i] = D[i][t:]
-
+    
 print(sorted([len(x) for x in D]))
 
 
 random_state = 2020
-
+    
 # standardize features
 """
 Cmean = C.mean(axis=0)
@@ -456,36 +446,37 @@ for i in range(len(D)):
 # get cluster
 #TODO K-means
 cluster = pd.read_csv('Cluster.csv', header=None)
-cluster = np.argmax(cluster.values, axis=1)
+cluster = np.argmax(cluster.values, axis=1)#[:len(sids)]
 #cluster = cluster[keep_ids]
+#cluster = LabelEncoder().fit_transform(cluster)
 
+model_type = str(sys.argv[1])
 
-
-model_type = 'AR1'
-#model_type = str(sys.argv[1])
-
-max_iter = 100
+max_iter = 50#0
 save_path = 'results/model_fit_%s.pkl'%model_type
 if model_type=='baseline':
     simulator = BaselineSimulator(2, W, random_state=random_state)
     simulator.fit(D, Eobs)
     Ep_sim = simulator.predict(D, Pobs)
-
+    
 elif 'lognormal' in model_type:
-    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, K_MA, max_iter=max_iter, random_state=random_state)
+    MA_T0 = 6
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=[0, MA_T0], max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
     simulator.fit(D, Eobs, cluster, save_path=save_path)
     Ep_sim = simulator.predict(D, cluster)
-
-elif 'AR' in model_type:
-    T0 = int(model_type[-1:])
-    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, K_MA, T0=T0, max_iter=max_iter, random_state=random_state)
+    
+elif 'ARMA' in model_type:
+    AR_T0 = int(model_type[-2:-1])
+    MA_T0 = int(model_type[-1:])
+    simulator = Simulator('stan_models/model_%s.stan'%model_type, W, T0=[AR_T0, MA_T0], max_iter=max_iter, random_state=random_state)
     #simulator.load_model(save_path)
     simulator.fit(D, Eobs, cluster, save_path=save_path)
-    Ep_sim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:T0] for i in range(len(Pobs))]))
+    Ep_sim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_T0] for i in range(len(Pobs))]))
 
-#with open('results/results_%s.pickle'%model_type, 'wb') as ff:
-#    pickle.dump({'Ep_sim':Ep_sim,
-#                 'E':Eobs, 'P':Pobs,
-#                 'Dscaled':D, 'Dmax':Dmax,
-#                 'sids':sids}, ff)
+with open('results/results_%s.pickle'%model_type, 'wb') as ff:
+    pickle.dump({'Ep_sim':Ep_sim,
+                 'E':Eobs, 'P':Pobs,
+                 'Dscaled':D, 'Dmax':Dmax,
+                 'sids':sids}, ff)
+

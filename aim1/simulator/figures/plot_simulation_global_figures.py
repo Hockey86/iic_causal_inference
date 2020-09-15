@@ -12,7 +12,7 @@ Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['AR2']
+models = ['ARMA16']
 
 """
 with open('../results/model_fit_lognormal.pkl', 'rb') as f:
@@ -51,12 +51,12 @@ for model in models:
         fig = plt.figure(figsize=(9,6))
         
         ax1 = fig.add_subplot(211)
-        random_ids = np.random.choice(len(Ep[si]), 3, replace=False)
-        ax1.plot(tt, Ep[si][random_ids].T*100, c='r')
-        ax1.plot(tt, np.mean(Ep[si], axis=0)*100, c='b', label='simulated')
-        ax1.plot(tt, np.percentile(Ep[si],2.5,axis=0)*100, c='b')
-        ax1.plot(tt, np.percentile(Ep[si],97.5,axis=0)*100, c='b')
-        ax1.plot(tt, P, c='k', label='observed')
+        random_ids = np.random.choice(len(Ep[si]), 1, replace=False)
+        ax1.plot(tt, Ep[si][random_ids].T*100, c='r', label='simulated (one example)')
+        ax1.plot(tt, np.mean(Ep[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
+        #ax1.plot(tt, np.percentile(Ep[si],2.5,axis=0)*100, c='b')
+        #ax1.plot(tt, np.percentile(Ep[si],97.5,axis=0)*100, c='b')
+        ax1.plot(tt, P, c='k', label='actual')
         if model == 'lognormal':
             T = len(E[si])
             tt2 = np.arange(1,T+1)
