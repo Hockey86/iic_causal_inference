@@ -1,12 +1,16 @@
 import os
 import pickle
 import numpy as np
+import scipy.io as sio
 from scipy.special import expit as sigmoid
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.rcParams.update({'font.size': 16})
 
 
 W = 300
+max_iter = 1000
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
           #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
@@ -32,51 +36,62 @@ for model in models:
     figure_dir = 'simulation_global_figures/%s'%model
     if not os.path.exists(figure_dir):
         os.mkdir(figure_dir)
-    with open('../results/results_%s.pickle'%model, 'rb') as ff:
+    with open('../results/results_%s_iter%d.pickle'%(model, max_iter), 'rb') as ff:
         res  = pickle.load(ff)
-
-    Ep = res['Ep_sim']
-    E = res['E']
+    Psim = res['Psim']
+    P = res['P']
     Dscaled = res['Dscaled']
     Dmax = res['Dmax']
     sids = res['sids']
+    spec_db = res['spec']
+    freq = res['freq']
+    vmin, vmax = np.nanpercentile(np.concatenate([x.flatten() for x in spec_db]), (5, 95))
     
     for si, sid in enumerate(tqdm(sids)):
-        tt = np.arange(len(E[si]))*W*2/3600
-        P = np.array(E[si]).astype(float)
-        P[P==-1] = np.nan
-        P = P/W*100
+        T = len(P[si])
+        tt = np.arange(T)*W*2/3600
+        P_ = P[si]*100
         
         plt.close()
-        fig = plt.figure(figsize=(9,6))
+        fig = plt.figure(figsize=(12,8))
         
-        ax1 = fig.add_subplot(211)
-        random_ids = np.random.choice(len(Ep[si]), 1, replace=False)
-        ax1.plot(tt, Ep[si][random_ids].T*100, c='r', label='simulated (one example)')
-        ax1.plot(tt, np.mean(Ep[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
-        #ax1.plot(tt, np.percentile(Ep[si],2.5,axis=0)*100, c='b')
-        #ax1.plot(tt, np.percentile(Ep[si],97.5,axis=0)*100, c='b')
-        ax1.plot(tt, P, c='k', label='actual')
+        ax1 = fig.add_subplot(311)
+        ax1.imshow(spec_db[si].T, cmap='jet', aspect='auto', origin='lower',
+                   vmin=vmin, vmax=vmax,
+                   extent=(tt.min(), tt.max(), freq[si].min(), freq[si].max()))
+        ax1.set_xlim([tt.min(), tt.max()])
+        ax1.set_ylim([freq[si].min(), freq[si].max()])
+        ax1.set_ylabel('freq (Hz)')
+        
+        ax2 = fig.add_subplot(312)
+        random_ids = np.random.choice(len(Psim[si]), 1, replace=False)
+        ax2.plot(tt, Psim[si][random_ids].T*100, c='r', label='simulated (one example)')
+        ax2.plot(tt, np.mean(Psim[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
+        #ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*100, c='b')
+        #ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*100, c='b')
+        ax2.plot(tt, P_, c='k', label='actual')
         if model == 'lognormal':
-            T = len(E[si])
             tt2 = np.arange(1,T+1)
             val = alpha[si] * np.exp(-(np.log(tt2)-mu[si])**2 / (2* sigma[si]**2))#+t0[i]
             val = sigmoid(val)
-            ax1.plot(tt, val*100, c='m', label='no drug')
-        ax1.legend()
-        #ax1.set_xlabel('time (h)')
-        ax1.set_ylabel('IIC burden (%)')
-        ax1.set_ylim([-2,102])
+            ax2.plot(tt, val*100, c='m', label='no drug')
+        ax2.legend(fontsize=12, frameon=False, ncol=3)
+        #ax2.set_xlabel('time (h)')
+        ax2.set_ylabel('IIC burden (%)')
+        ax2.set_ylim([-2,102])
+        ax2.set_xlim([tt.min(), tt.max()])
         
         #TODO use imshow
-        ax2 = fig.add_subplot(212)
+        ax3 = fig.add_subplot(313)
         for di in range(ND):
             if np.max(Dscaled[si][:,di])>0:
-                ax2.plot(tt, Dscaled[si][:,di]*Dmax[di], label=Dnames[di])
-        ax2.legend()#ncol=2
-        ax2.set_xlabel('time (h)')
-        ax2.set_ylabel('Drug concentration')
+                ax3.plot(tt, Dscaled[si][:,di]*Dmax[di], label=Dnames[di])
+        ax3.legend()#ncol=2
+        ax3.set_xlabel('time (h)')
+        ax3.set_ylabel('[drug]')
+        ax3.set_xlim([tt.min(), tt.max()])
         
         plt.tight_layout()
         #plt.show()
         plt.savefig(os.path.join(figure_dir, '%s.png'%sids[si]))
+        

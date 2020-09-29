@@ -15,56 +15,60 @@ def rmse(x, y):
 
 
 class BaseSimulator(object):
-    def load_model(self, save_path):
-        print('loading model from %s'%save_path)
-        with open(save_path, 'rb') as f:
+    def load_model(self, path):
+        print('loading model from %s'%path)
+        with open(path, 'rb') as f:
             self.stan_model, self.fit_res = pickle.load(f)#, self.ma_models
         return self
+        
+    def save_model(self, path):
+        with open(path, 'wb') as f:
+            pickle.dump([self.stan_model, self.fit_res], f)#, self.ma_models
 
-    def score(self, D, E, Ep=None, cluster=None, Ncluster=None, method='loglikelihood', TstRMSE=8):
+    def score(self, D, P, Psim=None, cluster=None, Ncluster=None, method='loglikelihood', TstRMSE=8):
         """
-        E: [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
-        Ep: [0-1], list of arrays, with different lengths. Each element has shape (Nsim, T[i])
+        P: [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
+        Psim: [0-1], list of arrays, with different lengths. Each element has shape (Nsim, T[i])
         """
-        N = len(E)
-        assert len(D)==N, 'len(E)!=len(D)'
-        if Ep is not None:
-            assert len(Ep)==N, 'len(E)!=len(E predicted)'
+        N = len(P)
+        assert len(D)==N, 'len(P)!=len(D)'
+        if Psim is not None:
+            assert len(Psim)==N, 'len(P)!=len(P predicted)'
         available_metrics = ['loglikelihood', 'stRMSE']
         assert method in available_metrics, 'Unknown method: %s. Available: %s'%(method, str(available_metrics))
 
         metrics = []
         if method=='loglikelihood':
             for i in range(N):
-                Ei = E[i]
-                Epi = Ep[i]
+                Pi = P[i]
+                Psim_i = Psim[i]
                 metric = []
-                for j in range(len(Epi)):
-                    goodids = Ei>=0
-                    metric.append( np.mean(binom.logpmf(Ei[goodids], self.W, np.clip(Epi[j][goodids],1e-6,1-1e-6))) )
+                for j in range(len(Psim_i)):
+                    goodids = Pi>=0
+                    metric.append( np.mean(binom.logpmf(Pi[goodids], self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
 
         elif method=='stRMSE':
             if hasattr(self, 'AR_T0'):
                 T0 = self.AR_T0
+            elif hasattr(self, 'T0'):
+                T0 = self.T0[0]
             if type(self)==BaselineSimulator:
                 T0 = 2
             for i in range(N):
-                Ei = E[i]
+                Pi = P[i]
                 Di = D[i]
-                if len(Ei)-TstRMSE<=T0:
+                if len(Pi)-TstRMSE<=T0:
                     continue
                 metric = []
-                for t in range(T0, len(Ei)-TstRMSE, 10):
-                    if not np.any(Ei[t-T0:t+TstRMSE]<0):
+                for t in range(T0, len(Pi)-TstRMSE):
+                    if not np.any(Pi[t-T0:t+TstRMSE]<0):
                         if type(self)==BaselineSimulator:
-                            E2 = Ei[t-T0:]/self.W
-                            E2[E2<0] = np.nan
-                            Ep = self.predict([Di[t-T0:]], [E2])
-                            Ep = [x[:,:T0+TstRMSE] for x in Ep]
+                            Psim = self.predict([Di[t-T0:]], [Pi[t-T0:]])
+                            Psim = [x[:,:T0+TstRMSE] for x in Psim]
                         else:
-                            Ep = self.predict([Di[t-T0:t+TstRMSE]], cluster[[i]], Ncluster=Ncluster, Pstart=Ei[t-T0:t].reshape(1,-1)/self.W)
-                        metric.append([rmse(Ei[t:t+TstRMSE]/self.W, Ep[0][k,T0:]) for k in range(len(Ep[0]))])
+                            Psim = self.predict([Di[t-T0:t+TstRMSE]], cluster[[i]], Ncluster=Ncluster, Pstart=Pi[t-T0:t].reshape(1,-1)/self.W)
+                        metric.append([rmse(Pi[t:t+TstRMSE]/self.W, Psim[0][k,T0:]) for k in range(len(Psim[0]))])
                 metrics.append(np.nanmean(metric, axis=0))
         metrics = np.array(metrics)  # (#pt, #posterior sample)
         return metrics
@@ -77,32 +81,31 @@ class BaselineSimulator(BaseSimulator):
         self.max_iter = max_iter
         self.random_state = random_state
 
-    def fit(self, D, E):
+    def fit(self, D, P):
         return self
 
-    def predict(self, D, E):
+    def predict(self, D, P):
         if self.random_state is None:
             self.random_state = np.random.randint(10000)
         np.random.seed(self.random_state)
 
         Nsample = self.max_iter//2
-        Eps = []
+        P_pred = []
         for i in range(len(D)):
             # first decide which value to carry forward
             # it should be the (Tinit-1)-th, but it can be NaN, search backwards until non-NaN
             for tt in range(self.Tinit-1,-1,-1):
-                if not np.isnan(E[i][tt]):
+                if not np.isnan(P[i][tt]):
                     break
             tt = tt+1
-            Ep = []
+            this_P_pred = []
             for j in range(Nsample):
-                Ep_ = np.random.binomial(self.W, E[i][tt-1], size=len(D[i])-tt)
-                Ep_ = Ep_/self.W
-                Ep_ = np.r_[E[i][:tt], Ep_]
-                Ep.append(Ep_)
+                p_ = np.random.binomial(self.W, P[i][tt-1], size=len(D[i])-tt)/self.W
+                p_ = np.r_[P[i][:tt], p_]
+                this_P_pred.append(p_)
 
-            Eps.append(np.array(Ep))
-        return Eps
+            P_pred.append(np.array(this_P_pred))
+        return P_pred
 
 
 class Simulator(BaseSimulator):
@@ -133,115 +136,88 @@ class Simulator(BaseSimulator):
             print("Using cached StanModel")
         return stan_model
 
-    def _pad_to_same_length(self, D, E=None):
+    def _pad_to_same_length(self, D, P=None):
         maxT = np.max([len(x) for x in D])
         D2 = []
-        if E is not None:
+        if P is not None:
             P2 = []
             E2 = []
         for i in range(len(D)):
-            if E is not None:
-                pp = E[i].astype(float)
-                pp[pp==-1] = np.nan
-                P2.append( np.r_[pp/self.W, np.zeros(maxT-len(E[i]))+np.nan] )
-                E2.append( np.r_[E[i], np.zeros(maxT-len(E[i]), dtype=int)-1] )
+            if P is not None:
+                P2.append( np.r_[P[i], np.zeros(maxT-len(P[i]))+np.nan] )
+                E2.append( np.r_[np.round(P[i]*self.W).astype(int), np.zeros(maxT-len(E[i]), dtype=int)-1] )
             D2.append( np.r_[D[i], np.zeros((maxT-len(D[i]), D[i].shape[1]))] )
-        if E is not None:
+        if P is not None:
             E2 = np.array(E2)
             P2 = np.array(P2)
         D2 = np.array(D2)
 
-        if E is None:
+        if P is None:
             return D2
         else:
             return D2, E2, P2
+    
+    def convert_to_ragged_structure(self, D, P, W):
+        Ts = [len(x) for x in P]
+        Ts_nonan = [np.sum(~np.isnan(x)) for x in P]
+        D2 = np.concatenate(D, axis=0)
+        P2 = np.concatenate(P, axis=0)
+        E2 = P2*W
+        E2[np.isnan(P2)] = -1
+        E2 = np.round(E2).astype(int)
+        return D2, E2, P2, Ts, Ts_nonan
 
-    def fit(self, D_, E_, cluster,save_path=None):
+    def fit(self, D_, P_, cluster, loss_weight=1):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         E: IIC burden, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         cluster: Cluster assignment for the patients has shape(N,), with values [0,1,2...]
         """
         ## pad to same length
-        D, E, P = self._pad_to_same_length(D_, E_)
-
-        self.N = len(D)
-        self.T = D.shape[1]
+        #D, E, P = self._pad_to_same_length(D_, P_, self.W)
+        D, E, P, Ts, Ts_nonan = self.convert_to_ragged_structure(D_, P_, self.W)
+        
+        self.N = len(Ts)
+        #self.T = D.shape[1]
         self.ND = D.shape[-1]
         self.Ncluster = len(set(cluster.flatten()))
-        Ts = np.array([np.sum(~np.isnan(x)) for x in P])
-        #cum_Ts =  np.r_[0, np.cumsum(Ts)[:-1]]
-        print('nonlan',Ts)
-        #print('cum; patient',cum_Ts)
-
-        E_flatten = E[:,self.T0[0]:].flatten()#
-        not_empty_ids = np.where(E_flatten!=-1)[0]
-        not_empty_num = len(not_empty_ids)
-        E_flatten_nonan = E_flatten[not_empty_ids]
-        #E_flatten_nonan = np.clip(E_flatten_nonan, 1, self.W-1)
 
         # generate sample weights that balances different lengths
-        #sample_weights = np.zeros_like(E[:,self.T0[0]:]) + 1/(Ts-self.T0[0]).reshape(-1,1)#
-        sample_weights = np.zeros_like(E) + 1/Ts.reshape(-1,1)#
+        #sample_weights = np.zeros_like(E[:,self.T0[0]:]) + 1/(Ts_nonan-self.T0[0]).reshape(-1,1)#
+        #sample_weights = np.zeros_like(E) + 1/Ts_nonan.reshape(-1,1)#
+        sample_weights = np.zeros_like(P)
+        cc = 0
+        for i in range(self.N):
+            sample_weights[cc:cc+Ts[i]] = 1/Ts_nonan[i]
+            cc += Ts[i]
+        #sample_weights = sample_weights.flatten()[not_empty_ids]#[:,self.T0[0]:]
         sample_weights = sample_weights/sample_weights.mean()
-        sample_weights2 = sample_weights[:,self.T0[0]:].flatten()[not_empty_ids]
         
         ## load model
         self.stan_model = self._get_stan_model(self.stan_model_path)
 
-        # datafeed for concatinate missing data
-        """
-        A_flatten_nonan = logit(np.clip(E_flatten_nonan, 1, self.W-1)/self.W)
+        # data feed
+        empty_ids = np.isnan(P)
+        A = logit(np.clip(P, 1e-6, 1-1e-6))  #TODO move P-->A into stan
+        A[empty_ids] = np.nan
         data_feed = {
             'W':self.W,
             'N':self.N,
-            #'T':self.T,
-            'AR_T0':self.T0[0],
-            'MA_T0':self.T0[1],
+            'AR_p':self.T0[0],
+            'MA_q':self.T0[1],
             'ND':self.ND,
 
-            #'NC':C.shape[-1],
-            'not_empty_num':not_empty_num,
+            'total_len':len(E),
+            'patient_lens':Ts,
+            'Eobs':E,
+            'Aobs':A,
             'sample_weights':sample_weights,
-            'not_empty_ids':not_empty_ids+1,
-            'Eobs_flatten_nonan':E_flatten_nonan,
-            'Aobs_flatten_nonan':A_flatten_nonan,
-            'patient_nonnan_len': Ts,
-            #'cum_patient_nonnan_len':cum_Ts,
-            #'Pobs':P2,
-            #'D': np.nan_to_num(D.transpose(1,0,2)),  # because matrix[N,ND] D[T];
-            #'C':C,
-            #'A_start':logit(P2[:,:self.T0]),  # assumes the first T0 steps contains no nan
-            'NClust':len(set(cluster)),
-            'cluster':cluster +1,  # +1 because of Stan
-
-            'D': np.nan_to_num(D.transpose(1,0,2)),  # because matrix[N,ND] D[T];
-            #'C':C,
-            #'A_start':logit(P2[:,:self.T0])
-            #'cluster':np.array([cluster[0:self.N]+1])  # +1 for stan
-            #'cluster': [1,2,3,4,5,1,1,1,1]
-        }
-        """
-        P2 = np.clip(E, 1, self.W-1)/self.W
-        P2[E<0] = -1
-        data_feed = {
-            'W':self.W,
-            'N':self.N,
-            'T':self.T,
-            'AR_T0':self.T0[0],
-            'MA_T0':self.T0[1],
-            'ND':self.ND,
-
-            'not_empty_num':not_empty_num,
-            'not_empty_ids':not_empty_ids+1,
-            'Eobs_flatten_nonan':E_flatten_nonan,
-            'sample_weights':sample_weights,
-            'sample_weights2':sample_weights2,
-            'Pobs':P2,
-
-            'D': D.transpose(1,0,2),  # because matrix[N,ND] D[T];
+            'D': D,  # because matrix[N,ND] D[T];
+            
             'NClust':self.Ncluster,
             'cluster':cluster +1,  # +1 because of Stan
+            
+            'loss_weight':loss_weight
         }
 
         ## sampling
@@ -251,7 +227,7 @@ class Simulator(BaseSimulator):
         self.fit_res = self.stan_model.sampling(data=data_feed,
                                        iter=self.max_iter, verbose=True,
                                        chains=1, seed=self.random_state)
-        print(self.fit_res.stansummary(pars=['a0', 'sigma_err']))
+        print(self.fit_res.stansummary(pars=['alpha0', 'alpha']))
         
         """
         # fit MA to residual
@@ -271,12 +247,6 @@ class Simulator(BaseSimulator):
             except Exception as ee:
                 self.ma_models.append(None)
         """
-        
-        # save
-        if save_path is None:
-            save_path = 'model_fit.pkl'
-        with open(save_path, 'wb') as f:
-            pickle.dump([self.stan_model, self.fit_res], f)#, self.ma_models
 
         return self
 
@@ -295,12 +265,14 @@ class Simulator(BaseSimulator):
         model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
         N = len(D)
         ND = D[0].shape[-1]
-
+    
         # set model-specific parameters as input data
         if 'ARMA' in model_type:
-            pars = ['a0','a1','b','theta','sigma_err']
-            pars_shape = [(N,), (N,), (N,ND), (N,self.T0[1]), (N,)]
-            pars_shape2 = [1,1,ND,self.T0[1],1]
+            pars = ['alpha0','alpha','b']
+            pars_shape = [(N,), (N,self.T0[0]), (N,ND)]
+            if self.T0[1]>0:
+                pars.extend(['theta','sigma_err'])
+                pars_shape.extend([(self.T0[1],), ()])
         else:
             raise NotImplementedError(self.stan_model_path)
 
@@ -313,17 +285,21 @@ class Simulator(BaseSimulator):
         # since it is very general, so it is not easy to read
         for pi, par in enumerate(pars):
             shape = pars_shape[pi]
-            var = np.zeros((Nsample,)+shape)
-            for ind in product(*[range(1,x+1) for x in shape]):
-                key = '%s[' + ','.join(['%d']*len(ind)) + ']'
-                val = (par,) + ind
-                inds = [slice(None)]*var.ndim
-                for ii, jj in enumerate(ind):
-                    inds[ii+1] = jj-1
-                var[tuple(inds)] = df[key%val].values
+            if len(shape)>0:
+                var = np.zeros((Nsample,)+shape)
+                for ind in product(*[range(1,x+1) for x in shape]):
+                    key = '%s[' + ','.join(['%d']*len(ind)) + ']'
+                    val = (par,) + ind
+                    inds = [slice(None)]*var.ndim
+                    for ii, jj in enumerate(ind):
+                        inds[ii+1] = jj-1
+                    var[tuple(inds)] = df[key%val].values
+            else:
+                var = df[par].values
             data_feed2[par] = var
 
         # also add AR-specific initial values
+        #TODO move P-->A into stan, here only provide P_start
         if Pstart is not None and 'AR' in model_type:
             if 'PAR' in model_type or 'NBAR' in model_type:
                 func = np.log
@@ -346,8 +322,8 @@ class Simulator(BaseSimulator):
         data_feed = {'W':self.W,
                      'N':N,
                      'T':T,
-                     'AR_T0':self.T0[0],
-                     'MA_T0':self.T0[1],
+                     'AR_p':self.T0[0],
+                     'MA_q':self.T0[1],
                      'ND':ND,
                      'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
                      'NClust':Ncluster,

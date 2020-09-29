@@ -9,9 +9,10 @@ import seaborn
 seaborn.set_style('ticks')
 
 
-with open('../results/performance_metrics_separteAR1MA6_AR2MA6_baseline.pickle', 'rb') as ff:
+with open("../results/performance_metrics_['ARMA10', 'baseline'].pickle", 'rb') as ff:
     perf = pickle.load(ff)
 
+"""
 tt_ar1 = np.arange(1,13)
 mean_ar1 = [np.mean(perf[('AR1', 'stRMSE(%d)'%t)].mean(axis=0)) for t in tt_ar1]
 ub_ar1 = [np.percentile(perf[('AR1', 'stRMSE(%d)'%t)].mean(axis=0), 97.5) for t in tt_ar1]
@@ -42,12 +43,9 @@ plt.tight_layout()
 plt.savefig('stRMSE.png')
 
 """
-models = ['lognormal', 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2']#, 'baseline']
+models = ['baseline', 'ARMA10']#'lognormal', 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2']#, 'baseline']
 metrics = ['loglikelihood']
 metric_names = ['log-likelihood']
-
-with open('../performance_metrics.pickle', 'rb') as ff:
-    perf = pickle.load(ff)
 sids = perf['sids']
 N = len(sids)
 
@@ -96,4 +94,3 @@ for mi, metric in enumerate(metrics):
     plt.tight_layout()
     #plt.show()
     plt.savefig('performance_across_patients.png')
-"""
