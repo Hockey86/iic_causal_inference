@@ -28,6 +28,7 @@ parameters {
     vector<lower=0>[ND] b[N];
     vector<lower=-0.999,upper=0.999>[MA_q] theta;//[NClust]
     real<lower=0.001> sigma_err[NClust];
+    real<lower=1> nu[NClust];
 }
 
 model {
@@ -85,15 +86,16 @@ model {
             
             if (Eobs[pos+j]<0)  // miss data
                 err[pos+j] = 0;
-            else                // not miss data
-                err[pos+j] = f_Eobs[pos+j]  - A[pos+j];
+            else {              // not miss data
+                err[pos+j] = f_Eobs[pos+j] - A[pos+j];
+                target += student_t_lpdf(f_Eobs[pos+j] | nu[cluster[i]], A[pos+j], sigma_err[cluster[i]]) * sample_weights[pos+j] * loss_weight;
+            }
             
             //print("A[", i, ",", j, "] = ",A[pos+j]);
             //print("err[", i, ",", j, "] = ",err[pos+j]);
 
             if (Eobs[pos+j]>=0) { // not miss data
                 target += binomial_logit_lpmf(Eobs[pos+j] | W, A[pos+j] ) * sample_weights[pos+j];
-                target += normal_lpdf(err[pos+j] | 0, sigma_err[cluster[i]] ) * sample_weights[pos+j] * loss_weight;
             }
         }
         pos += patient_lens[i];
