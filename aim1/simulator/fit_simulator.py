@@ -473,7 +473,7 @@ for i in range(len(D)):
 
 model_type = str(sys.argv[1])
 
-max_iter = 1000#0
+max_iter = 200#0
 stan_path = 'stan_models/model_%s.stan'%model_type
 model_path = 'results/model_fit_%s_iter%d.pkl'%(model_type, max_iter)
 if model_type=='baseline':

@@ -69,7 +69,7 @@ for model in models:
         ax2.plot(tt, np.mean(Psim[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
         #ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*100, c='b')
         #ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*100, c='b')
-        ax2.plot(tt, P_, c='k', label='actual')
+        ax2.plot(tt, P_, lw=2, c='k', alpha=0.5, label='actual')
         if model == 'lognormal':
             tt2 = np.arange(1,T+1)
             val = alpha[si] * np.exp(-(np.log(tt2)-mu[si])**2 / (2* sigma[si]**2))#+t0[i]

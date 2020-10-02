@@ -15,7 +15,7 @@ data {
     matrix[N, AR_p] alpha[N_sample];
     vector[MA_q] theta[N_sample];
     matrix[N,ND] b[N_sample];
-    real sigma_err[N_sample];
+    vector[NClust] sigma_err[N_sample];
 }
 
 parameters {
@@ -27,6 +27,7 @@ model {
 generated quantities {
     matrix[N,T] P_output[N_sample];
     
+    vector[N] sigma_err2;
     vector[ND] ones_b;
     vector[N] ones_N;
     vector[N] tmp1;
@@ -36,6 +37,9 @@ generated quantities {
     ones_N = rep_vector(1, N);
     
     for (n in 1:N_sample) {
+        for (i in 1:N)
+            sigma_err2[i] = sigma_err[n][cluster[i]];
+        
         for (t in 1:T) {
             if (t<=AR_p)
                 P_output[n][:,t] = A_start[:,t];
@@ -51,7 +55,7 @@ generated quantities {
                 tmp1 = rep_vector(0, N);
                 for (q in 1:MA_q) {
                     if (t>q)
-                        tmp1 += theta[n][q] .* normal_rng(0, sigma_err[n]);
+                        tmp1 += theta[n][q] * to_vector(normal_rng(0, sigma_err2));
                 }
                 P_output[n][:,t] += tmp1;
                 

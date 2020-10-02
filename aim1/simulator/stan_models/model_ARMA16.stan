@@ -22,13 +22,12 @@ parameters {
     real<lower=0.001> sigma_alpha0[NClust];
     real<lower=0.001> sigma_alpha[NClust];
     vector<lower=0.01>[ND] sigma_b[NClust];
-    real<lower=0.001> sigma_theta;
-    real<lower=0.001> sigma_err;
     
     vector[N] alpha0;
     matrix<lower=-0.999,upper=0.999>[N, AR_p] alpha;// TODO general stationery constraint for AR(p)?
     vector<lower=0>[ND] b[N];
-    vector<lower=-0.999,upper=0.999>[MA_q] theta;//
+    vector<lower=-0.999,upper=0.999>[MA_q] theta;//[NClust]
+    real<lower=0.001> sigma_err[NClust];
 }
 
 model {
@@ -47,13 +46,12 @@ model {
         for (i in 1:N)
             b[i,j] ~ normal(0, sigma_b[cluster[i]][j]);
     }
-    theta ~ normal(0, sigma_theta);
     
     pos = 0;
     for (i in 1:N){
         for (j in 1:patient_lens[i]){
             if (j<=AR_p) {
-                A[pos+j] = alpha0;
+                A[pos+j] = f_Eobs[pos+j];
                 err[pos+j] = 0;
                 continue;
             }
@@ -95,7 +93,7 @@ model {
 
             if (Eobs[pos+j]>=0) { // not miss data
                 target += binomial_logit_lpmf(Eobs[pos+j] | W, A[pos+j] ) * sample_weights[pos+j];
-                target += normal_lpdf(err[pos+j] | 0, sigma_err ) * sample_weights[pos+j] * loss_weight;
+                target += normal_lpdf(err[pos+j] | 0, sigma_err[cluster[i]] ) * sample_weights[pos+j] * loss_weight;
             }
         }
         pos += patient_lens[i];

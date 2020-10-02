@@ -34,18 +34,29 @@ class BaseSimulator(object):
         assert len(D)==N, 'len(P)!=len(D)'
         if Psim is not None:
             assert len(Psim)==N, 'len(P)!=len(P predicted)'
-        available_metrics = ['loglikelihood', 'stRMSE']
-        assert method in available_metrics, 'Unknown method: %s. Available: %s'%(method, str(available_metrics))
+        #available_metrics = ['loglikelihood', 'stRMSE']
+        #assert method in available_metrics, 'Unknown method: %s. Available: %s'%(method, str(available_metrics))
 
         metrics = []
-        if method=='loglikelihood':
+        if method=='CI95 Coverage':
             for i in range(N):
                 Pi = P[i]
                 Psim_i = Psim[i]
+                goodids = ~np.isnan(Pi)
+                Pi = Pi[goodids]
+                Psim_i = Psim_i[:,goodids]
+                lb, ub = np.percentile(Psim_i, (2.5, 97.5), axis=0)
+                metric = np.mean( (Pi<=ub) & (Pi>=lb) )
+                metrics.append(metric)
+                
+        elif method=='loglikelihood':
+            for i in range(N):
+                Pi = P[i]
+                Psim_i = Psim[i]
+                goodids = ~np.isnan(Pi)
                 metric = []
                 for j in range(len(Psim_i)):
-                    goodids = Pi>=0
-                    metric.append( np.mean(binom.logpmf(Pi[goodids], self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
+                    metric.append( np.mean(binom.logpmf(np.round(Pi[goodids]*self.W).astype(int), self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
 
         elif method=='stRMSE':
@@ -210,7 +221,7 @@ class Simulator(BaseSimulator):
             'total_len':len(E),
             'patient_lens':Ts,
             'Eobs':E,
-            'Aobs':A,
+            'f_Eobs':A,
             'sample_weights':sample_weights,
             'D': D,  # because matrix[N,ND] D[T];
             
@@ -265,6 +276,10 @@ class Simulator(BaseSimulator):
         model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
         N = len(D)
         ND = D[0].shape[-1]
+        if hasattr(self, 'Ncluster'):
+            Ncluster = self.Ncluster
+        else:
+            Ncluster = len(set(cluster))
     
         # set model-specific parameters as input data
         if 'ARMA' in model_type:
@@ -272,7 +287,7 @@ class Simulator(BaseSimulator):
             pars_shape = [(N,), (N,self.T0[0]), (N,ND)]
             if self.T0[1]>0:
                 pars.extend(['theta','sigma_err'])
-                pars_shape.extend([(self.T0[1],), ()])
+                pars_shape.extend([(self.T0[1],), (Ncluster,)])
         else:
             raise NotImplementedError(self.stan_model_path)
 
@@ -314,11 +329,7 @@ class Simulator(BaseSimulator):
         N, T, ND = D.shape
         #assert self.ND==ND, 'ND is not the same as in fit'
         #assert T>self.T0, 'T<=T0'
-
-        if hasattr(self, 'Ncluster'):
-            Ncluster = self.Ncluster
-        else:
-            Ncluster = len(set(cluster))
+        
         data_feed = {'W':self.W,
                      'N':N,
                      'T':T,
