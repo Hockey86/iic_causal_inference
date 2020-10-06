@@ -32,13 +32,14 @@ generated quantities {
     vector[N] ones_N;
     vector[N] tmp1;
     real tmp2;
+    real eta;
     
     ones_b = rep_vector(1, ND);
     ones_N = rep_vector(1, N);
     
     for (n in 1:N_sample) {
         for (i in 1:N)
-            err[i] = normal_rng(0, rep_row_vector(sigma_err[n][cluster[i]], T));
+            err[i] = to_row_vector(normal_rng(0, rep_vector(sigma_err[n][cluster[i]], T)));
         
         for (t in 1:T) {
             if (t<=AR_p)
@@ -64,13 +65,14 @@ generated quantities {
                 
                 // sample P_output
                 for (i in 1:N) {
-                    if (P_output[n][i,t]<-12)
-                        P_output[n][i,t] = -12;
-                    else if (P_output[n][i,t]>12)
-                        P_output[n][i,t] = 12;
-                    P_output[n][i,t] = Phi(P_output[n][i,t]);
+                    //Binomial throws erros when given probability of 0
+                    eta = Phi(P_output[n][i,t]);
+                    if(eta<= 0.001)
+                        eta = 0.001;
+                    else if(eta >= 0.999)
+                        eta = 0.999;
                     
-                    tmp2 = binomial_rng(W, P_output[n][i,t]);
+                    tmp2 = binomial_rng(W, eta);
                     
                     if (tmp2<1)
                         tmp2 = 1;

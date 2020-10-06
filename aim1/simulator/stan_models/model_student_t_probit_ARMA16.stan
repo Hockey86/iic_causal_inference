@@ -36,6 +36,7 @@ model {
     vector[total_len] err;
     vector[ND] ones_b;
     real tmp1;
+    real eta;
     int pos;
     ones_b = rep_vector(1, ND);
     
@@ -95,7 +96,15 @@ model {
             //print("err[", i, ",", j, "] = ",err[pos+j]);
 
             if (Eobs[pos+j]>=0) { // not miss data
-                target += binomial_lpmf(Eobs[pos+j] | W, Phi(A[pos+j]) ) * sample_weights[pos+j];
+                eta = Phi(A[pos+j]);
+                
+                //Binomial throws erros when given probability of 0
+                if(eta<= 0.001)
+                    eta = 0.001;
+                else if(eta >= 0.999)
+                    eta = 0.999;
+                    
+                target += binomial_lpmf(Eobs[pos+j] | W, eta ) * sample_weights[pos+j];
             }
         }
         pos += patient_lens[i];

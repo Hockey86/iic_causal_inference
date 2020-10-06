@@ -6,8 +6,8 @@ from tqdm import tqdm
 from simulator import *
 
 
-models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'baseline']
-max_iter = [200,200,100]
+models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'student_t_expit_ARMA16', 'normal_probit_ARMA16', 'baseline']
+max_iter = [200,200,200,200,100]
 metrics = ['loglikelihood', 'CI95 Coverage']#, 'stRMSE'
 W = 300
 random_state = 2020
@@ -50,7 +50,14 @@ for model, metric in product(models, metrics):
         else:
             print('[%s, %s]: %.2f [%.2f -- %.2f]'%(model, metric, perf[(model, metric)].mean(), np.nanpercentile(perf[(model, metric)], 2.5), np.nanpercentile(perf[(model, metric)], 97.5)))
         
-    elif metric=='stRMSE':
+    elif metric == 'WAIC':
+        perf[(model, metric)] = simulator.score(
+                                    [x[AR_T0:] for x in Dscaled],
+                                    [x[AR_T0:] for x in P],
+                                    Psim=[x[:,AR_T0:] for x in Psim],
+                                    method=metric)
+                                    
+    elif metric == 'stRMSE':
         for TstRMSE in tqdm(range(2,13)):
             perf[(model, 'stRMSE(%d)'%TstRMSE)] = simulator.score(
                                         [x[AR_T0:] for x in Dscaled],

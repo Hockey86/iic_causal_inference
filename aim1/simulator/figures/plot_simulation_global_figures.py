@@ -10,13 +10,13 @@ matplotlib.rcParams.update({'font.size': 16})
 
 
 W = 300
-max_iter = 1000
+max_iter = 200
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
           #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['ARMA16']
+models = ['normal_expit_ARMA16', 'student_t_expit_ARMA16', 'cauchy_expit_ARMA16', 'normal_probit_ARMA16']
 
 """
 with open('../results/model_fit_lognormal.pkl', 'rb') as f:
@@ -67,8 +67,8 @@ for model in models:
         random_ids = np.random.choice(len(Psim[si]), 1, replace=False)
         ax2.plot(tt, Psim[si][random_ids].T*100, c='r', label='simulated (one example)')
         ax2.plot(tt, np.mean(Psim[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
-        #ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*100, c='b')
-        #ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*100, c='b')
+        ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*100, c='b', ls='--', label='95% CI')
+        ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*100, c='b', ls='--')
         ax2.plot(tt, P_, lw=2, c='k', alpha=0.5, label='actual')
         if model == 'lognormal':
             tt2 = np.arange(1,T+1)

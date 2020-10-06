@@ -58,6 +58,14 @@ class BaseSimulator(object):
                 for j in range(len(Psim_i)):
                     metric.append( np.mean(binom.logpmf(np.round(Pi[goodids]*self.W).astype(int), self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
+                
+        elif method=='WAIC':
+            import pdb;pdb.set_trace()
+            sim1 = self.fit_res.to_dataframe()
+            post_means  = self.fit_res.get_posterior_mean()
+            post_means = post_means[:-1]
+            lik1 = self.fit_res.log_prob(post_means)
+            waic = 2*(lik1 - np.mean(sim1['lp__'].values))
 
         elif method=='stRMSE':
             if hasattr(self, 'AR_T0'):
@@ -273,7 +281,7 @@ class Simulator(BaseSimulator):
         # load prediction model
         self.predict_stan_model = self._get_stan_model(self.stan_model_path.replace('.stan', '_predict.stan'))
 
-        model_type = os.path.basename(self.stan_model_path).split('_')[-1].replace('.stan','')
+        model_type = os.path.basename(self.stan_model_path).replace('model_','').replace('.stan','')
         N = len(D)
         ND = D[0].shape[-1]
         if hasattr(self, 'Ncluster'):

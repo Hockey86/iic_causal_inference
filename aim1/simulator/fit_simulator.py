@@ -498,7 +498,6 @@ elif 'ARMA' in model_type:
     #simulator.load_model(model_path)
     Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_T0] for i in range(len(Pobs))]))
 
-import pdb;pdb.set_trace()
 with open('results/results_%s_iter%d.pickle'%(model_type, max_iter), 'wb') as ff:
     pickle.dump({'Psim':Psim, 'P':Pobs,
                  'Dscaled':D, 'Dmax':Dmax,
