@@ -288,6 +288,9 @@ class Simulator(BaseSimulator):
             if self.T0[1]>0:
                 pars.extend(['theta','sigma_err'])
                 pars_shape.extend([(self.T0[1],), (Ncluster,)])
+            if 'student_t' in model_type:
+                pars.append('nu')
+                pars_shape.append((Ncluster,))
         else:
             raise NotImplementedError(self.stan_model_path)
 

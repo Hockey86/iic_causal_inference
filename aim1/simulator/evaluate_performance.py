@@ -6,8 +6,8 @@ from tqdm import tqdm
 from simulator import *
 
 
-models = ['ARMA10', 'ARMA16', 'baseline']
-max_iter = [100,1000,100]
+models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'baseline']
+max_iter = [200,200,100]
 metrics = ['loglikelihood', 'CI95 Coverage']#, 'stRMSE'
 W = 300
 random_state = 2020
