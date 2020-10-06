@@ -46,7 +46,12 @@ class BaseSimulator(object):
                 Pi = Pi[goodids]
                 Psim_i = Psim_i[:,goodids]
                 lb, ub = np.percentile(Psim_i, (2.5, 97.5), axis=0)
-                metric = np.mean( (Pi<=ub) & (Pi>=lb) )
+                # if in the middle, check if between the bounds
+                criterion1 = (Pi>0.05) & (Pi<0.95) & (Pi<=ub) & (Pi>=lb)
+                # if close to boundary, check if bounds are also close to boundary
+                criterion2 = ((Pi<=0.05) & (lb<=0.05)) | ((Pi>=0.95) & (ub>=0.95))
+                # either of above
+                metric = np.mean( criterion1 | criterion2 )
                 metrics.append(metric)
                 
         elif method=='loglikelihood':

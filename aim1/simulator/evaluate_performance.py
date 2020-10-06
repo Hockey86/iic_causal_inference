@@ -7,7 +7,7 @@ from simulator import *
 
 
 models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'student_t_expit_ARMA16', 'normal_probit_ARMA16', 'baseline']
-max_iter = [200,200,200,200,100]
+max_iter = [1000,1000,1000,1000,100]
 metrics = ['loglikelihood', 'CI95 Coverage']#, 'stRMSE'
 W = 300
 random_state = 2020
