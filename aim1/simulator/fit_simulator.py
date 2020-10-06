@@ -473,7 +473,7 @@ for i in range(len(D)):
 
 model_type = str(sys.argv[1])
 
-max_iter = 200#0
+max_iter = 1000
 stan_path = 'stan_models/model_%s.stan'%model_type
 model_path = 'results/model_fit_%s_iter%d.pkl'%(model_type, max_iter)
 if model_type=='baseline':
@@ -498,6 +498,7 @@ elif 'ARMA' in model_type:
     #simulator.load_model(model_path)
     Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_T0] for i in range(len(Pobs))]))
 
+import pdb;pdb.set_trace()
 with open('results/results_%s_iter%d.pickle'%(model_type, max_iter), 'wb') as ff:
     pickle.dump({'Psim':Psim, 'P':Pobs,
                  'Dscaled':D, 'Dmax':Dmax,

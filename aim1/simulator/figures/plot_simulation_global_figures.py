@@ -10,7 +10,7 @@ matplotlib.rcParams.update({'font.size': 16})
 
 
 W = 300
-max_iter = 200
+max_iter = 1000
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
           #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
