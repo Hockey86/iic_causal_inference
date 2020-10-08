@@ -20,7 +20,7 @@ class BaseSimulator(object):
         with open(path, 'rb') as f:
             self.stan_model, self.fit_res = pickle.load(f)#, self.ma_models
         return self
-        
+
     def save_model(self, path):
         with open(path, 'wb') as f:
             pickle.dump([self.stan_model, self.fit_res], f)#, self.ma_models
@@ -53,7 +53,7 @@ class BaseSimulator(object):
                 # either of above
                 metric = np.mean( criterion1 | criterion2 )
                 metrics.append(metric)
-                
+
         elif method=='loglikelihood':
             for i in range(N):
                 Pi = P[i]
@@ -63,14 +63,18 @@ class BaseSimulator(object):
                 for j in range(len(Psim_i)):
                     metric.append( np.mean(binom.logpmf(np.round(Pi[goodids]*self.W).astype(int), self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
-                
+
         elif method=='WAIC':
             import pdb;pdb.set_trace()
-            sim1 = self.fit_res.to_dataframe()
-            post_means  = self.fit_res.get_posterior_mean()
-            post_means = post_means[:-1]
-            lik1 = self.fit_res.log_prob(post_means)
-            waic = 2*(lik1 - np.mean(sim1['lp__'].values))
+
+
+            log_lik_df =self.fit_res.to_dataframe(pars = 'log_lik')
+            parameters_WAIC = log_lik_df.iloc[:,3:-7].apply(np.var,1      )
+            parameters_WAIC = np.sum(parameters_WAIC)
+            lppd  = -2 * np.sum( log_lik_df.iloc[:,3:-7].apply(np.mean,0))
+            waic = lppd - parameters_WAIC
+
+            print(waic)
 
         elif method=='stRMSE':
             if hasattr(self, 'AR_T0'):
@@ -180,7 +184,7 @@ class Simulator(BaseSimulator):
             return D2
         else:
             return D2, E2, P2
-    
+
     def convert_to_ragged_structure(self, D, P, W):
         Ts = [len(x) for x in P]
         Ts_nonan = [np.sum(~np.isnan(x)) for x in P]
@@ -200,7 +204,7 @@ class Simulator(BaseSimulator):
         ## pad to same length
         #D, E, P = self._pad_to_same_length(D_, P_, self.W)
         D, E, P, Ts, Ts_nonan = self.convert_to_ragged_structure(D_, P_, self.W)
-        
+
         self.N = len(Ts)
         #self.T = D.shape[1]
         self.ND = D.shape[-1]
@@ -216,7 +220,7 @@ class Simulator(BaseSimulator):
             cc += Ts[i]
         #sample_weights = sample_weights.flatten()[not_empty_ids]#[:,self.T0[0]:]
         sample_weights = sample_weights/sample_weights.mean()
-        
+
         ## load model
         self.stan_model = self._get_stan_model(self.stan_model_path)
 
@@ -237,10 +241,10 @@ class Simulator(BaseSimulator):
             'f_Eobs':A,
             'sample_weights':sample_weights,
             'D': D,  # because matrix[N,ND] D[T];
-            
+
             'NClust':self.Ncluster,
             'cluster':cluster +1,  # +1 because of Stan
-            
+
             'loss_weight':loss_weight
         }
 
@@ -252,7 +256,18 @@ class Simulator(BaseSimulator):
                                        iter=self.max_iter, verbose=True,
                                        chains=1, seed=self.random_state)
         print(self.fit_res.stansummary(pars=['alpha0', 'alpha']))
-        
+        print(self.fit_res.stansummary(pars=['log_lik']))
+
+
+
+        log_lik_df =self.fit_res.to_dataframe(pars = 'log_lik')
+        parameters_WAIC = log_lik_df.iloc[:,3:-7].apply(np.var,1      )
+        parameters_WAIC = np.sum(parameters_WAIC)
+        lppd  = -2 * np.sum( log_lik_df.iloc[:,3:-7].apply(np.mean,0))
+        WAIC = lppd - parameters_WAIC
+
+        print(WAIC)
+
         """
         # fit MA to residual
         Ep = self.predict(D_, cluster, Pstart=P2[:,:self.T0], MA=False)
@@ -294,7 +309,7 @@ class Simulator(BaseSimulator):
                 Ncluster = self.Ncluster
             else:
                 Ncluster = len(set(cluster))
-    
+
         # set model-specific parameters as input data
         if 'ARMA' in model_type:
             pars = ['alpha0','alpha','b']
@@ -356,7 +371,7 @@ class Simulator(BaseSimulator):
         N, T, ND = D.shape
         #assert self.ND==ND, 'ND is not the same as in fit'
         #assert T>self.T0, 'T<=T0'
-        
+
         data_feed = {'W':self.W,
                      'N':N,
                      'T':T,
@@ -370,7 +385,7 @@ class Simulator(BaseSimulator):
 
         # combine model-specific and model-unspecific input data
         data_feed.update(data_feed2)
-        
+
         # sample without inferring parameters
         self.predict_res = self.predict_stan_model.sampling(data=data_feed,
                                        iter=1, verbose=False,
@@ -402,4 +417,3 @@ class Simulator(BaseSimulator):
                     P[i][j] = sigmoid(Ap[j] + ww2)
         """
         return P
-    

@@ -23,6 +23,7 @@ if __name__=='__main__':
 
 
     DATA_DIR = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
+    DATA_DIR = '/home/kentaro/Dropbox/step1_output/'
 
     sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 'sid54',
             'sid56', 'sid69', 'sid77', 'sid82', 'sid88', 'sid91', 'sid92', 'sid297', 'sid327',
@@ -34,10 +35,12 @@ if __name__=='__main__':
             'sid983', 'sid987', 'sid988', 'sid994', 'sid1002', 'sid1006', 'sid1016', 'sid1022',
             'sid1025', 'sid1034', 'sid1038', 'sid1039', 'sid1055', 'sid1056', 'sid1063', 'sid1113',
             'sid1116', 'sid1337', 'sid1913', 'sid1915', 'sid1916', 'sid1917', 'sid1928', 'sid1956', 'sid1966']
+
+    sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30']
     # exclude sid887 because there is no overlap between drug and IIC
     # , 'sid887'
-    
-    drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam', 
+
+    drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam',
                     #'pentobarbital','phenobarbital',# 'phenytoin',
                     'propofol', 'valproate']
 
@@ -171,7 +174,7 @@ if __name__=='__main__':
         Pobs[ind] = Pobs[ind][93:]
         D[ind] = D[ind][93:]
         spec[ind] = spec[ind][93:]
-        
+
     elif W==300:
         if 'sid1038' in sids:
             ind = sids.index('sid1038') # T=1506
@@ -269,7 +272,7 @@ if __name__=='__main__':
 
     for i in range(len(sids)):
         d = D[i].sum(axis=1)
-        
+
         start = 0
         for gi, g in enumerate(groupby(d)):
             if gi==0:
@@ -279,7 +282,7 @@ if __name__=='__main__':
                     start = ll
             else:
                 break
-                
+
         end = 0
         for gi, g in enumerate(groupby(d[::-1])):
             if gi==0:
@@ -290,11 +293,11 @@ if __name__=='__main__':
             else:
                 break
         end = len(d)-end
-        
+
         Pobs[i] = Pobs[i][start:end]
         D[i] = D[i][start:end]
         spec[i] = spec[i][start:end]
-        
+
     print(sorted([len(x) for x in D]))
 
 
@@ -317,11 +320,11 @@ if __name__=='__main__':
         Pobs[i] = Pobs[i][t:]
         D[i] = D[i][t:]
         spec[i] = spec[i][t:]
-        
+
     print(sorted([len(x) for x in D]))
 
     random_state = 2020
-        
+
     # standardize features
     """
     Cmean = C.mean(axis=0)
@@ -342,7 +345,7 @@ if __name__=='__main__':
                      'Pobs':Pobs, 'Pname':Pname,
                      'cluster':cluster, 'sids':sids,
                      'C':C, 'Cname':Cname}, f)
-                     
+
     # # define and infer model
 
     model_type = str(sys.argv[1])
@@ -354,7 +357,7 @@ if __name__=='__main__':
         simulator = BaselineSimulator(2, W, random_state=random_state)
         simulator.fit(D, Pobs)
         Psim = simulator.predict(D, Pobs)
-        
+
     elif 'lognormal' in model_type:
         MA_q = 6
         simulator = Simulator(stan_path, W, T0=[0, MA_q], max_iter=max_iter, random_state=random_state)
@@ -362,7 +365,7 @@ if __name__=='__main__':
         simulator.save_model(model_path)
         #simulator.load_model(model_path)
         Psim = simulator.predict(D, cluster)
-        
+
     elif 'ARMA' in model_type:
         AR_p = int(model_type[-2:-1])
         MA_q = int(model_type[-1:])
@@ -378,4 +381,3 @@ if __name__=='__main__':
                      'C':C, 'Cname':Cname,
                      'spec':spec, 'freq':freq,
                      'cluster':cluster, 'sids':sids}, ff)
-
