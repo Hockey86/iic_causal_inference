@@ -6,8 +6,8 @@ from tqdm import tqdm
 from simulator import *
 
 
-models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'student_t_expit_ARMA16', 'normal_probit_ARMA16', 'baseline']
-max_iter = [1000,1000,1000,1000,100]
+models = ['normal_expit_ARMA16', 'cauchy_expit_ARMA16', 'student_t_expit_ARMA16', 'baseline']
+max_iter = [1000,1000,1000,100]
 metrics = ['loglikelihood', 'CI95 Coverage']#, 'stRMSE'
 W = 300
 random_state = 2020
@@ -20,7 +20,7 @@ for model, metric in product(models, metrics):
     with open('results/results_%s_iter%d.pickle'%(model, max_iter[models.index(model)]), 'rb') as ff:
         res = pickle.load(ff)
     Psim = res['Psim']
-    P = res['P']
+    Pobs = res['Pobs']
     Dscaled = res['Dscaled']
     sids = res['sids']
     
@@ -41,7 +41,7 @@ for model, metric in product(models, metrics):
     if metric in ['loglikelihood', 'CI95 Coverage']:
         perf[(model, metric)] = simulator.score(
                                     [x[AR_T0:] for x in Dscaled],
-                                    [x[AR_T0:] for x in P],
+                                    [x[AR_T0:] for x in Pobs],
                                     Psim=[x[:,AR_T0:] for x in Psim],
                                     method=metric)
         if perf[(model, metric)].ndim>1:
@@ -53,7 +53,7 @@ for model, metric in product(models, metrics):
     elif metric == 'WAIC':
         perf[(model, metric)] = simulator.score(
                                     [x[AR_T0:] for x in Dscaled],
-                                    [x[AR_T0:] for x in P],
+                                    [x[AR_T0:] for x in Pobs],
                                     Psim=[x[:,AR_T0:] for x in Psim],
                                     method=metric)
                                     
@@ -61,7 +61,7 @@ for model, metric in product(models, metrics):
         for TstRMSE in tqdm(range(2,13)):
             perf[(model, 'stRMSE(%d)'%TstRMSE)] = simulator.score(
                                         [x[AR_T0:] for x in Dscaled],
-                                        [x[AR_T0:] for x in P],
+                                        [x[AR_T0:] for x in Pobs],
                                         cluster=cluster,
                                         Ncluster=len(set(cluster)),
                                         method=metric, TstRMSE=TstRMSE)

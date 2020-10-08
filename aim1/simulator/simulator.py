@@ -274,10 +274,10 @@ class Simulator(BaseSimulator):
 
         return self
 
-    def predict(self, D, cluster, Ncluster=None, Pstart=None):#, MA=True):
+    def predict(self, D, cluster, Ncluster=None, sid_index=None, Pstart=None, posterior_mean=False):#, MA=True):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
-        training:
+        cluster:
 
         returns:
         P: simulated IIC burden, list of arrays, with different lengths. Each element has shape (Nsample, T[i])
@@ -289,25 +289,36 @@ class Simulator(BaseSimulator):
         model_type = os.path.basename(self.stan_model_path).replace('model_','').replace('.stan','')
         N = len(D)
         ND = D[0].shape[-1]
-        if hasattr(self, 'Ncluster'):
-            Ncluster = self.Ncluster
-        else:
-            Ncluster = len(set(cluster))
+        if Ncluster is None:
+            if hasattr(self, 'Ncluster'):
+                Ncluster = self.Ncluster
+            else:
+                Ncluster = len(set(cluster))
     
         # set model-specific parameters as input data
         if 'ARMA' in model_type:
             pars = ['alpha0','alpha','b']
             pars_shape = [(N,), (N,self.T0[0]), (N,ND)]
+            pars_shapeN = [True, True, True]
             if self.T0[1]>0:
                 pars.extend(['theta','sigma_err'])
                 pars_shape.extend([(self.T0[1],), (Ncluster,)])
+                pars_shapeN.extend([False, False, False])
             if 'student_t' in model_type:
                 pars.append('nu')
                 pars_shape.append((Ncluster,))
+                pars_shapeN.append(False)
         else:
             raise NotImplementedError(self.stan_model_path)
 
         df = self.fit_res.to_dataframe(pars=pars)
+        if posterior_mean:
+            values = df.values
+            values[values>1e6] = np.nan
+            values = np.nanmean(values, axis=0)
+            values[np.isnan(values)] = 0
+            df.loc[0] = values
+            df = df[:1]
         Nsample = len(df)
         data_feed2 = {'N_sample':Nsample}  # data_feed2 is model-specific
 
@@ -320,7 +331,10 @@ class Simulator(BaseSimulator):
                 var = np.zeros((Nsample,)+shape)
                 for ind in product(*[range(1,x+1) for x in shape]):
                     key = '%s[' + ','.join(['%d']*len(ind)) + ']'
-                    val = (par,) + ind
+                    if pars_shapeN[pi] and sid_index is not None:
+                        val = (par,) + (sid_index[ind[0]-1]+1,)+ind[1:]
+                    else:
+                        val = (par,) + ind
                     inds = [slice(None)]*var.ndim
                     for ii, jj in enumerate(ind):
                         inds[ii+1] = jj-1
@@ -332,10 +346,7 @@ class Simulator(BaseSimulator):
         # also add AR-specific initial values
         #TODO move P-->A into stan, here only provide P_start
         if Pstart is not None and 'AR' in model_type:
-            if 'PAR' in model_type or 'NBAR' in model_type:
-                func = np.log
-            else:
-                func = logit
+            func = logit
             A_start = func(np.clip(Pstart, 1e-6, 1-1e-6))
             data_feed2['A_start'] = A_start
 
@@ -354,12 +365,12 @@ class Simulator(BaseSimulator):
                      'ND':ND,
                      'D':D.transpose(1,0,2),  # because matrix[N,ND] D[T];
                      'NClust':Ncluster,
-                     'cluster':cluster+1,  # +1 for stan
+                     'cluster':np.array(cluster)+1,  # +1 for stan
                      }
 
         # combine model-specific and model-unspecific input data
         data_feed.update(data_feed2)
-
+        
         # sample without inferring parameters
         self.predict_res = self.predict_stan_model.sampling(data=data_feed,
                                        iter=1, verbose=False,

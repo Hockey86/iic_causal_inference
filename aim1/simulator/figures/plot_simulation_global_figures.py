@@ -16,7 +16,7 @@ Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['normal_expit_ARMA16', 'student_t_expit_ARMA16', 'cauchy_expit_ARMA16', 'normal_probit_ARMA16']
+models = ['normal_expit_ARMA16', 'student_t_expit_ARMA16', 'cauchy_expit_ARMA16']
 
 """
 with open('../results/model_fit_lognormal.pkl', 'rb') as f:
@@ -39,7 +39,7 @@ for model in models:
     with open('../results/results_%s_iter%d.pickle'%(model, max_iter), 'rb') as ff:
         res  = pickle.load(ff)
     Psim = res['Psim']
-    P = res['P']
+    Pobs = res['Pobs']
     Dscaled = res['Dscaled']
     Dmax = res['Dmax']
     sids = res['sids']
@@ -48,9 +48,9 @@ for model in models:
     vmin, vmax = np.nanpercentile(np.concatenate([x.flatten() for x in spec_db]), (5, 95))
     
     for si, sid in enumerate(tqdm(sids)):
-        T = len(P[si])
+        T = len(Pobs[si])
         tt = np.arange(T)*W*2/3600
-        P_ = P[si]*100
+        P_ = Pobs[si]*100
         
         plt.close()
         fig = plt.figure(figsize=(12,8))
