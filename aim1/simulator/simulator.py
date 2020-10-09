@@ -71,8 +71,8 @@ class BaseSimulator(object):
             log_lik_df =self.fit_res.to_dataframe(pars = 'log_lik')
             parameters_WAIC = log_lik_df.iloc[:,3:-7].apply(np.var,1      )
             parameters_WAIC = np.sum(parameters_WAIC)
-            lppd  = -2 * np.sum( log_lik_df.iloc[:,3:-7].apply(np.mean,0))
-            waic = lppd - parameters_WAIC
+            lppd  =  np.sum( log_lik_df.iloc[:,3:-7].apply(np.mean,0))
+            waic = -2 *lppd +2* parameters_WAIC
 
             print(waic)
 
