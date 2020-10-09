@@ -153,7 +153,7 @@ generated quantities{
                 err[pos+j] = 0;
             else {              // not miss data
                 err[pos+j] = f_Eobs[pos+j] - A[pos+j];
-                log_lik[pos+j] = cauchy_lpdf(f_Eobs[pos+j] | A[pos+j], sigma_err[cluster[i]]) * sample_weights[pos+j] * loss_weight;
+                log_lik[pos+j] = (cauchy_lpdf(f_Eobs[pos+j] | A[pos+j], sigma_err[cluster[i]])+binomial_logit_lpmf(Eobs[pos+j] | W, A[pos+j] )) * sample_weights[pos+j] * loss_weight;
             }
             
             //print("A[", i, ",", j, "] = ",A[pos+j]);
