@@ -370,9 +370,9 @@ if __name__=='__main__':
         AR_p = int(model_type[-2:-1])
         MA_q = int(model_type[-1:])
         simulator = Simulator(stan_path, W, T0=[AR_p, MA_q], max_iter=max_iter, random_state=random_state)
-        simulator.fit(D, Pobs, cluster)
-        simulator.save_model(model_path)
-        #simulator.load_model(model_path)
+        #simulator.fit(D, Pobs, cluster)
+        #simulator.save_model(model_path)
+        simulator.load_model(model_path)
         Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_p] for i in range(len(Pobs))]))
 
     import pdb;pdb.set_trace()

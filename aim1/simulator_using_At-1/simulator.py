@@ -2,7 +2,7 @@ from itertools import product
 import os
 import pickle
 import numpy as np
-from scipy.stats import binom
+from scipy.stats import binom, spearmanr
 from scipy.special import expit as sigmoid
 from scipy.special import logit
 from statsmodels.tsa.arima_model import ARMA
@@ -27,9 +27,8 @@ class BaseSimulator(object):
         # save dataframe instead to avoid big file size
         with open(path, 'wb') as f:
             pickle.dump([self.stan_model, self.fit_res_df], f)
-
-    #def score(self, D, P, Psim=None, cluster=None, Ncluster=None, method='loglikelihood', TstRMSE=8):
-    def score(self, P, Psim, method='loglikelihood', Ts_stRMSE=None):
+        
+    def score(self, P, Psim, method, D=None, cluster=None, Ncluster=None, Ts_stRMSE=None, Tinterval=1):
         """
         P: [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         Psim: [0-1], list of arrays, with different lengths. Each element has shape (Nsim, T[i])
@@ -65,6 +64,34 @@ class BaseSimulator(object):
                 for j in range(len(Psim_i)):
                     metric.append( np.mean(binom.logpmf(np.round(Pi[goodids]*self.W).astype(int), self.W, np.clip(Psim_i[j][goodids],1e-6,1-1e-6))) )
                 metrics.append(np.array(metric))
+        
+        elif method=='KL-divergence':
+            for i in range(N):
+                Pi = P[i]
+                Psim_i = Psim[i]
+                goodids = ~np.isnan(Pi)
+                Pi = Pi[goodids]
+                Psim_i = Psim_i[:,goodids]
+                T = len(Pi)
+                ps = np.array([np.mean((Pi>=lb)&(Pi<lb+0.1)) for lb in np.arange(0,1,0.1)])
+                qs = np.array([(np.sum((Psim_i>=lb)&(Psim_i<lb+0.1), axis=1)+0.1)/(T+1) for lb in np.arange(0,1,0.1)]).T
+                kl = ps*np.log(ps/qs)
+                kl[:,ps==0] = np.nan
+                kl[qs==0] = np.nan
+                kl[np.isinf(kl)] = np.nan
+                kl = np.nansum(kl, axis=1)
+                metrics.append(kl)
+        
+        elif method=='spearmanr':
+            for i in range(N):
+                Pi = P[i]
+                Psim_i = Psim[i]
+                goodids = ~np.isnan(Pi)
+                Pi = Pi[goodids]
+                Psim_i = Psim_i[:,goodids]
+                r = spearmanr(Pi.reshape(1,-1), Psim_i, axis=1).correlation
+                r = r[0,1:]
+                metrics.append(r)
 
         elif method=='WAIC':
             cols = [x for x in self.fit_res_df.columns if 'log_lik' in x]
@@ -73,40 +100,41 @@ class BaseSimulator(object):
             parameters_WAIC = np.sum(parameters_WAIC)
             lppd = np.sum( log_lik_df.apply(np.mean,0) )
             waic = -2 *lppd +2* parameters_WAIC
-
             metrics = waic
             
         elif method=='stRMSE':
-            for t in Ts_stRMSE:
-                metric = []
-                for i in range(N):
-                    Pi = P[i][:t]
-                    Psim_i = Psim[i][:,:t]
-                    metric.append( np.sqrt(np.nanmean((Psim_i-Pi)**2, axis=1)) )
-                metrics.append(metric)
-                
             if hasattr(self, 'AR_T0'):
                 T0 = self.AR_T0
             elif hasattr(self, 'T0'):
                 T0 = self.T0[0]
             if type(self)==BaselineSimulator:
                 T0 = 2
+            max_horizon = np.max(Ts_stRMSE)
             for i in range(N):
                 Pi = P[i]
                 Di = D[i]
-                if len(Pi)-TstRMSE<=T0:
-                    continue
-                metric = []
-                for t in range(T0, len(Pi)-TstRMSE):
-                    if not np.any(Pi[t-T0:t+TstRMSE]<0):
-                        if type(self)==BaselineSimulator:
-                            Psim = self.predict([Di[t-T0:]], [Pi[t-T0:]])
-                            Psim = [x[:,:T0+TstRMSE] for x in Psim]
-                        else:
-                            Psim = self.predict([Di[t-T0:t+TstRMSE]], cluster[[i]], Ncluster=Ncluster, Pstart=Pi[t-T0:t].reshape(1,-1)/self.W)
-                        metric.append([rmse(Pi[t:t+TstRMSE]/self.W, Psim[0][k,T0:]) for k in range(len(Psim[0]))])
-                metrics.append(np.nanmean(metric, axis=0))
-        metrics = np.array(metrics)  # (#pt, #posterior sample)
+                
+                # decide initialization starts,
+                # evenly choose `start_num` start locations with interval=`Tinterval`
+                # from %missing<10% start locations
+                start_locs = np.array([t0 for t0 in range(0, len(Pi)-T0-max_horizon) if np.mean(np.isnan(Pi[t0:t0+T0+max_horizon]))<=0.5 and np.all(~np.isnan(Pi[t0:t0+T0]))])
+                start_num = len(range(0, len(Pi)-T0-max_horizon+1, Tinterval))
+                start_locs = start_locs[np.arange(0, len(start_locs), len(start_locs)//start_num)]
+                
+                metric = {horizon:[] for horizon in Ts_stRMSE}
+                for t0 in start_locs:
+                    if t0==0:
+                        Psim_i = Psim[i]
+                    else:
+                        Psim_i = self.predict([Di[t0:t0+T0+max_horizon]], cluster[[i]], Ncluster=Ncluster, Pstart=Pi[t0:t0+T0].reshape(1,-1), sid_index=[i])[0]
+                    
+                    for horizon in Ts_stRMSE:
+                        rmse = np.sqrt(np.nanmean((Pi[t0+T0:t0+T0+horizon] - Psim_i[:,T0:T0+horizon])**2, axis=1))
+                        metric[horizon].append(rmse)
+                        
+                metrics.append( [np.nanmean(metric[horizon], axis=0) for horizon in Ts_stRMSE] )
+
+        metrics = np.array(metrics)  # (#pt, #posterior sample)                
         return metrics
 
 
@@ -118,9 +146,22 @@ class BaselineSimulator(BaseSimulator):
         self.random_state = random_state
 
     def fit(self, D, P):
+        self.stan_model = None
+        for i in range(len(D)):
+            # first decide which value to carry forward
+            # it should be the (Tinit-1)-th, but it can be NaN, search backwards until non-NaN
+            for tt in range(self.Tinit-1,-1,-1):
+                if not np.isnan(Pstart[i][tt]):
+                    break
+            tt = tt+1
+            this_P_pred = []
+            for j in range(Nsample):
+                p_ = np.random.binomial(self.W, Pstart[i][tt-1], size=len(D[i])-tt)/self.W
+            cols = [x for x in self.fit_res_df.columns
+            log_lik[pos+j] = binomial_logit_lpmf(Eobs[pos+j] | W, A[pos+j] ) * sample_weights[pos+j];
         return self
 
-    def predict(self, D, P):
+    def predict(self, D, cluster, Ncluster=None, sid_index=None, Pstart=None, posterior_mean=False):#, MA=True):
         if self.random_state is None:
             self.random_state = np.random.randint(10000)
         np.random.seed(self.random_state)
@@ -131,13 +172,13 @@ class BaselineSimulator(BaseSimulator):
             # first decide which value to carry forward
             # it should be the (Tinit-1)-th, but it can be NaN, search backwards until non-NaN
             for tt in range(self.Tinit-1,-1,-1):
-                if not np.isnan(P[i][tt]):
+                if not np.isnan(Pstart[i][tt]):
                     break
             tt = tt+1
             this_P_pred = []
             for j in range(Nsample):
-                p_ = np.random.binomial(self.W, P[i][tt-1], size=len(D[i])-tt)/self.W
-                p_ = np.r_[P[i][:tt], p_]
+                p_ = np.random.binomial(self.W, Pstart[i][tt-1], size=len(D[i])-tt)/self.W
+                p_ = np.r_[Pstart[i][:tt], p_]
                 this_P_pred.append(p_)
 
             P_pred.append(np.array(this_P_pred))
@@ -264,7 +305,7 @@ class Simulator(BaseSimulator):
         print(self.fit_res.stansummary(pars=['alpha0', 'alpha']))
         #print(self.fit_res.stansummary(pars=['log_lik']))
         pars = self.fit_res.model_pars
-        pars = [x for x in pars in x not in ['A', 'err', 'ones_b', 'tmp1', 'pos']]
+        pars = [x for x in pars in x not in ['err', 'ones_b', 'tmp1', 'pos']]
         self.fit_res_df = self.fit_res.to_dataframe(pars=pars)
 
         """

@@ -23,6 +23,8 @@ parameters {
     real<lower=0.001> sigma_alpha[NClust];
     vector<lower=0.01>[ND] sigma_b[NClust];
     real<lower=0.001> sigma_err[NClust];
+    real<lower=0.001> sigma_t0;
+    real<lower=0.001> sigma_sigma0
     
     vector[N] t0;
     vector[N] sigma0;
