@@ -6,8 +6,8 @@ from tqdm import tqdm
 from simulator import *
 
 
-models = ['cauchy_expit_ARMA16','baseline']#, 'normal_expit_ARMA16', 'student_t_expit_ARMA16']
-max_iter = [1000,1000]
+models = ['normal_expit_ARMA16','baseline']#, 'normal_expit_ARMA16', 'student_t_expit_ARMA16']
+max_iter = [100,100]
 metrics = ['spearmanr', 'KL-divergence', 'loglikelihood', 'CI95 Coverage', 'stRMSE']#, 'WAIC']
 W = 300
 random_state = 2020
@@ -23,7 +23,7 @@ for model, metric in product(models, metrics):
     Pobs = res['Pobs']
     Dscaled = res['Dscaled']
     sids = res['sids']
-    
+
     if 'lognormal' in model:
         AR_T0 = 0
         MA_T0 = 6
@@ -37,7 +37,7 @@ for model, metric in product(models, metrics):
     elif model=='baseline':
         AR_T0 = 2
         simulator = BaselineSimulator(AR_T0, W, random_state=random_state)
-    
+
     if metric in ['loglikelihood', 'CI95 Coverage', 'KL-divergence', 'spearmanr']:
         perf[(model, metric)] = simulator.score(
                                     [x[AR_T0:] for x in Pobs],
@@ -48,11 +48,11 @@ for model, metric in product(models, metrics):
             print('[%s, %s]: %.2f [%.2f -- %.2f]'%(model, metric, perf_.mean(), np.nanpercentile(perf_, 2.5), np.nanpercentile(perf_, 97.5)))
         else:
             print('[%s, %s]: %.2f [%.2f -- %.2f]'%(model, metric, perf[(model, metric)].mean(), np.nanpercentile(perf[(model, metric)], 2.5), np.nanpercentile(perf[(model, metric)], 97.5)))
-        
+
     elif metric == 'WAIC':
         perf[(model, metric)] = simulator.score(Pobs, Psim, metric)
         print('[%s, %s]: %.2f'%(model, metric, perf[(model, metric)]))
-                                    
+
     elif metric == 'stRMSE':
         Ts = np.arange(1,25)
         perf[(model, metric)] = simulator.score(
@@ -65,10 +65,8 @@ for model, metric in product(models, metrics):
         for ii, t in enumerate(Ts):
             perf_ = np.nanmean(perf[(model, metric)][ii], axis=0)
             print('[%s, %s(%d)]: %.2f [%.2f -- %.2f]'%(model, metric, t, perf_.mean(), np.nanpercentile(perf_, 2.5), np.nanpercentile(perf_, 97.5)))
-            
-import pdb;pdb.set_trace()
+
 perf['sids'] = sids
 with open('results/performance_metrics_%s.pickle'%str(models), 'wb') as ff:
     pickle.dump(perf, ff)
 #plt.close();plt.plot(range(1,13),[np.nanmean(perf[('AR1','stRMSE_%d'%i)]) for i in range(1,13)], 'o-');plt.xlabel('step');plt.ylabel('AR1 stRMSE');plt.xticks(range(1,13));plt.grid(True);plt.show()
-

@@ -23,7 +23,7 @@ if __name__=='__main__':
 
 
     DATA_DIR = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
-    #DATA_DIR = '/home/kentaro/Dropbox/step1_output/'
+    DATA_DIR = '/home/kentaro/Dropbox/step1_output/'
 
     sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 'sid54',
             'sid56', 'sid69', 'sid77', 'sid82', 'sid88', 'sid91', 'sid92', 'sid297', 'sid327',
@@ -35,6 +35,10 @@ if __name__=='__main__':
             'sid983', 'sid987', 'sid988', 'sid994', 'sid1002', 'sid1006', 'sid1016', 'sid1022',
             'sid1025', 'sid1034', 'sid1038', 'sid1039', 'sid1055', 'sid1056', 'sid1063', 'sid1113',
             'sid1116', 'sid1337', 'sid1913', 'sid1915', 'sid1916', 'sid1917', 'sid1928', 'sid1956', 'sid1966']
+
+
+    #sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30', 'sid36', 'sid39', 'sid54',
+    #        'sid56', 'sid69', 'sid77', 'sid82', 'sid88', 'sid91', 'sid92', 'sid297', 'sid327']
 
     #sids = ['sid2', 'sid8', 'sid13', 'sid17', 'sid18', 'sid30']
     # exclude sid887 because there is no overlap between drug and IIC
@@ -350,13 +354,16 @@ if __name__=='__main__':
 
     model_type = str(sys.argv[1])
 
-    max_iter = 1000
+    max_iter = 300
     stan_path = 'stan_models/model_%s.stan'%model_type
     model_path = 'results/model_fit_%s_iter%d.pkl'%(model_type, max_iter)
     if model_type=='baseline':
+        AR_p = 2
+        MA_q = 6
         simulator = BaselineSimulator(2, W, random_state=random_state)
         simulator.fit(D, Pobs)
-        Psim = simulator.predict(D, Pobs)
+        Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_p] for i in range(len(Pobs))]))
+
 
     elif 'lognormal' in model_type:
         MA_q = 6
@@ -370,9 +377,9 @@ if __name__=='__main__':
         AR_p = int(model_type[-2:-1])
         MA_q = int(model_type[-1:])
         simulator = Simulator(stan_path, W, T0=[AR_p, MA_q], max_iter=max_iter, random_state=random_state)
-        #simulator.fit(D, Pobs, cluster)
-        #simulator.save_model(model_path)
-        simulator.load_model(model_path)
+        simulator.fit(D, Pobs, cluster)
+        simulator.save_model(model_path)
+        #simulator.load_model(model_path)
         Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_p] for i in range(len(Pobs))]))
 
     import pdb;pdb.set_trace()

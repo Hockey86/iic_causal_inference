@@ -12,16 +12,16 @@ matplotlib.rcParams.update({'font.size': 16})
 
 W = 300
 max_iter = 1000
-Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
+Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
           #'pentobarbital','phenobarbital',# 'phenytoin',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['cauchy_expit_ARMA16']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
-    
+models = ['normal_expit_ARMA16']#'normal_expit_ARMA16', 'student_t_expit_ARMA16',
+
 for model in models:
     print(model)
-    
+
     figure_dir = 'simulation_global_figures/%s'%model
     if not os.path.exists(figure_dir):
         os.mkdir(figure_dir)
@@ -30,16 +30,17 @@ for model in models:
     for k in res:
         exec('%s = res[\'%s\']'%(k,k))
     vmin, vmax = np.nanpercentile(np.concatenate([x.flatten() for x in spec]), (5, 95))
-    
+
     for si, sid in enumerate(tqdm(sids)):
+
         T = len(Pobs[si])
         tt = np.arange(T)*W*2/3600
         P_ = Pobs[si]*100
-        
+
         plt.close()
         fig = plt.figure(figsize=(12,8))
         gs = GridSpec(3, 1, figure=fig)
-        
+
         ax1 = fig.add_subplot(gs[0,0])
         ax1.imshow(spec[si].T, cmap='jet', aspect='auto', origin='lower',
                    vmin=vmin, vmax=vmax,
@@ -47,7 +48,7 @@ for model in models:
         ax1.set_xlim([tt.min(), tt.max()])
         ax1.set_ylim([freq[si].min(), freq[si].max()])
         ax1.set_ylabel('freq (Hz)')
-        
+
         ax2 = fig.add_subplot(gs[1,0])
         random_ids = np.random.choice(len(Psim[si]), 1, replace=False)
         ax2.plot(tt, Psim[si][random_ids].T*100, c='r', label='simulated (one example)')
@@ -65,7 +66,7 @@ for model in models:
         ax2.set_ylabel('IIC burden (%)')
         ax2.set_ylim([-2,102])
         ax2.set_xlim([tt.min(), tt.max()])
-        
+
         """
         ax3 = fig.add_subplot(313)
         for di in range(ND):
@@ -90,8 +91,7 @@ for model in models:
                 ax3.set_xticklabels([])
             ax3.set_xlim([tt.min(), tt.max()])
             ax3.set_yticks([])
-        
+
         plt.tight_layout()
         #plt.show()
         plt.savefig(os.path.join(figure_dir, '%s.png'%sids[si]))
-        
