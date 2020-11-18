@@ -16,7 +16,7 @@ def convert_to_onehot(A, id2diag):
                 A_onehot[id2diag[trd]][i] = 1
     return A_onehot
     
-
+"""
 sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
     'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
     'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
@@ -35,20 +35,12 @@ sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
      'sid918', 'sid927', 'sid933', 'sid940', 'sid942', 'sid944', 'sid952', 'sid960',
      'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
      'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
-     'sid1113', 'sid1116']
-output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
+     'sid1113', 'sid1116'] 
+"""
+#output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
+output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
        
-master_list = pd.read_excel('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019.xlsx', sheet_name='All Corrections Included')
-master_list = master_list[np.in1d(master_list.Index, sids)].reset_index(drop=True)
-
-# same patient but different values, delete
-#master_list = master_list[~np.in1d(master_list.Index, ['sid522', 'sid1044'])].reset_index(drop=True)
-# same patient with mutliple visits, delete the first one (arbitary) for simplicity
-#master_list = master_list[~np.in1d(master_list.Index, ['sid9', 'sid71', 'sid289', 'sid678', 'sid918'])].reset_index(drop=True)
-
-master_list.MRN = master_list.MRN.astype(str)
-master_list = master_list.drop_duplicates().reset_index(drop=True)
-
+master_list = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019_HaoqiCorrected.csv')
 
 all_covs = master_list.copy()
 all_covs.columns = all_covs.columns.str.replace('[nN]o\s*=\s*0\s*,*\s* [yY]es\s*=\s*1','').str.strip()
@@ -173,13 +165,16 @@ cov_names = [
 ]+list(neuro_id2diag.values())+list(prim_id2diag.values())+list(sz_id2diag.values())
 
 all_covs_sids = list(all_covs.Index)
-ids = [all_covs_sids.index(sid) for sid in sids]
-covs = all_covs[['Index']+cov_names].iloc[ids]
+covs = all_covs[['Index']+cov_names]
+#ids = [all_covs_sids.index(sid) for sid in sids]
+#covs = covs.iloc[ids].reset_index(drop=True)
 
 # remove rare covs
 notrare_cov_col_ids = (covs.values!=0).sum(axis=0)>=10
 covs = covs[covs.columns[notrare_cov_col_ids]]
 
+cols = ['Index', 'Gender', 'Age', 'marrital', 'APACHE II  first 24', 'Hx CVA (including TIA)', 'Hx HTN', 'Hx Sz /epilepsy', 'Hx brain surgery', 'Hx CKD', 'Hx CAD/MI', 'Hx CHF', 'Hx DM', 'Hx of HLD', 'Hx tobacco (including ex-smokers)', 'Hx ETOH abuse any time in their life (just when in the hx is mentioned)', 'Hx other substance abuse, any time in their life', 'Hx cancer (other than CNS cancer)', 'Hx CNS cancer', 'Hx COPD/ Asthma', 'premorbid MRS before admission  (modified ranking scale),before admission', 'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)', 'hydrocephalus  (either on admission or during hospital course)   QPID', 'iMV  (initial (on admission) mechanical ventilation)', 'systolic BP', 'diastolic BP', 'Midline shift with any reason ( Document Date)', 'Primary systemic dx Sepsis/Shock', 'iGCS-Total', 'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS in 1st 24', 'Worst GCS Intubation status', 'iGCS actual scores', 'neuro_dx_Seizures/status epilepticus', 'prim_dx_Respiratory disorders']
+covs = covs[cols]
 covs.to_csv(os.path.join(output_dir, 'covariates.csv'), index=False)
 
 
@@ -188,5 +183,6 @@ outcome_names = [
 'DC GOSE (extended glasgow outcome scale)',
 'DC dispo home=1, rehab=2, SNF =3, hospice =4, dead =5'
 ]
-outcomes = all_covs[['Index']+outcome_names].iloc[ids]
+outcomes = all_covs[['Index']+outcome_names]
+#outcomes = outcomes.iloc[ids].reset_index(drop=True)
 outcomes.to_csv(os.path.join(output_dir, 'outcomes.csv'), index=False)
