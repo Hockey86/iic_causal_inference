@@ -1,0 +1,108 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1>None</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 800;
+            height: 700;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"group": 1, "id": "sid2", "label": "sid2", "shape": "dot", "size": 10}, {"group": 1, "id": "sid736", "label": "sid736", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1022", "label": "sid1022", "shape": "dot", "size": 10}, {"group": 3, "id": "sid8", "label": "sid8", "shape": "dot", "size": 10}, {"group": 2, "id": "sid965", "label": "sid965", "shape": "dot", "size": 10}, {"group": 2, "id": "sid994", "label": "sid994", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1063", "label": "sid1063", "shape": "dot", "size": 10}, {"group": 2, "id": "sid13", "label": "sid13", "shape": "dot", "size": 10}, {"group": 1, "id": "sid17", "label": "sid17", "shape": "dot", "size": 10}, {"group": 1, "id": "sid54", "label": "sid54", "shape": "dot", "size": 10}, {"group": 1, "id": "sid88", "label": "sid88", "shape": "dot", "size": 10}, {"group": 1, "id": "sid821", "label": "sid821", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1116", "label": "sid1116", "shape": "dot", "size": 10}, {"group": 3, "id": "sid18", "label": "sid18", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1025", "label": "sid1025", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1913", "label": "sid1913", "shape": "dot", "size": 10}, {"group": 1, "id": "sid30", "label": "sid30", "shape": "dot", "size": 10}, {"group": 2, "id": "sid952", "label": "sid952", "shape": "dot", "size": 10}, {"group": 3, "id": "sid1055", "label": "sid1055", "shape": "dot", "size": 10}, {"group": 2, "id": "sid1113", "label": "sid1113", "shape": "dot", "size": 10}, {"group": 3, "id": "sid39", "label": "sid39", "shape": "dot", "size": 10}, {"group": 3, "id": "sid834", "label": "sid834", "shape": "dot", "size": 10}, {"group": 2, "id": "sid1916", "label": "sid1916", "shape": "dot", "size": 10}, {"group": 3, "id": "sid56", "label": "sid56", "shape": "dot", "size": 10}, {"group": 1, "id": "sid69", "label": "sid69", "shape": "dot", "size": 10}, {"group": 2, "id": "sid82", "label": "sid82", "shape": "dot", "size": 10}, {"group": 2, "id": "sid960", "label": "sid960", "shape": "dot", "size": 10}, {"group": 3, "id": "sid1337", "label": "sid1337", "shape": "dot", "size": 10}, {"group": 2, "id": "sid92", "label": "sid92", "shape": "dot", "size": 10}, {"group": 3, "id": "sid297", "label": "sid297", "shape": "dot", "size": 10}, {"group": 3, "id": "sid876", "label": "sid876", "shape": "dot", "size": 10}, {"group": 3, "id": "sid940", "label": "sid940", "shape": "dot", "size": 10}, {"group": 2, "id": "sid327", "label": "sid327", "shape": "dot", "size": 10}, {"group": 3, "id": "sid852", "label": "sid852", "shape": "dot", "size": 10}, {"group": 3, "id": "sid385", "label": "sid385", "shape": "dot", "size": 10}, {"group": 1, "id": "sid395", "label": "sid395", "shape": "dot", "size": 10}, {"group": 3, "id": "sid832", "label": "sid832", "shape": "dot", "size": 10}, {"group": 3, "id": "sid884", "label": "sid884", "shape": "dot", "size": 10}, {"group": 3, "id": "sid406", "label": "sid406", "shape": "dot", "size": 10}, {"group": 1, "id": "sid824", "label": "sid824", "shape": "dot", "size": 10}, {"group": 2, "id": "sid849", "label": "sid849", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1034", "label": "sid1034", "shape": "dot", "size": 10}, {"group": 1, "id": "sid424", "label": "sid424", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1006", "label": "sid1006", "shape": "dot", "size": 10}, {"group": 1, "id": "sid450", "label": "sid450", "shape": "dot", "size": 10}, {"group": 1, "id": "sid456", "label": "sid456", "shape": "dot", "size": 10}, {"group": 2, "id": "sid490", "label": "sid490", "shape": "dot", "size": 10}, {"group": 2, "id": "sid967", "label": "sid967", "shape": "dot", "size": 10}, {"group": 1, "id": "sid551", "label": "sid551", "shape": "dot", "size": 10}, {"group": 2, "id": "sid839", "label": "sid839", "shape": "dot", "size": 10}, {"group": 1, "id": "sid848", "label": "sid848", "shape": "dot", "size": 10}, {"group": 1, "id": "sid987", "label": "sid987", "shape": "dot", "size": 10}, {"group": 3, "id": "sid557", "label": "sid557", "shape": "dot", "size": 10}, {"group": 1, "id": "sid734", "label": "sid734", "shape": "dot", "size": 10}, {"group": 2, "id": "sid872", "label": "sid872", "shape": "dot", "size": 10}, {"group": 3, "id": "sid1002", "label": "sid1002", "shape": "dot", "size": 10}, {"group": 1, "id": "sid915", "label": "sid915", "shape": "dot", "size": 10}, {"group": 1, "id": "sid942", "label": "sid942", "shape": "dot", "size": 10}, {"group": 1, "id": "sid827", "label": "sid827", "shape": "dot", "size": 10}, {"group": 3, "id": "sid833", "label": "sid833", "shape": "dot", "size": 10}, {"group": 2, "id": "sid1928", "label": "sid1928", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1956", "label": "sid1956", "shape": "dot", "size": 10}, {"group": 2, "id": "sid880", "label": "sid880", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1966", "label": "sid1966", "shape": "dot", "size": 10}, {"group": 2, "id": "sid881", "label": "sid881", "shape": "dot", "size": 10}, {"group": 1, "id": "sid944", "label": "sid944", "shape": "dot", "size": 10}, {"group": 1, "id": "sid983", "label": "sid983", "shape": "dot", "size": 10}, {"group": 2, "id": "sid1917", "label": "sid1917", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1039", "label": "sid1039", "shape": "dot", "size": 10}, {"group": 2, "id": "sid1038", "label": "sid1038", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1056", "label": "sid1056", "shape": "dot", "size": 10}, {"group": 1, "id": "sid1915", "label": "sid1915", "shape": "dot", "size": 10}]);
+        edges = new vis.DataSet([{"from": "sid2", "to": "sid2", "weight": true}, {"from": "sid2", "to": "sid736", "weight": true}, {"from": "sid2", "to": "sid1022", "weight": true}, {"from": "sid8", "to": "sid8", "weight": true}, {"from": "sid8", "to": "sid965", "weight": true}, {"from": "sid8", "to": "sid994", "weight": true}, {"from": "sid8", "to": "sid1063", "weight": true}, {"from": "sid13", "to": "sid13", "weight": true}, {"from": "sid17", "to": "sid17", "weight": true}, {"from": "sid17", "to": "sid54", "weight": true}, {"from": "sid17", "to": "sid88", "weight": true}, {"from": "sid17", "to": "sid821", "weight": true}, {"from": "sid17", "to": "sid1116", "weight": true}, {"from": "sid18", "to": "sid18", "weight": true}, {"from": "sid18", "to": "sid1025", "weight": true}, {"from": "sid18", "to": "sid1913", "weight": true}, {"from": "sid30", "to": "sid30", "weight": true}, {"from": "sid30", "to": "sid952", "weight": true}, {"from": "sid30", "to": "sid1055", "weight": true}, {"from": "sid30", "to": "sid1113", "weight": true}, {"from": "sid39", "to": "sid39", "weight": true}, {"from": "sid39", "to": "sid834", "weight": true}, {"from": "sid39", "to": "sid1916", "weight": true}, {"from": "sid54", "to": "sid54", "weight": true}, {"from": "sid56", "to": "sid56", "weight": true}, {"from": "sid69", "to": "sid69", "weight": true}, {"from": "sid82", "to": "sid82", "weight": true}, {"from": "sid88", "to": "sid88", "weight": true}, {"from": "sid88", "to": "sid960", "weight": true}, {"from": "sid88", "to": "sid1337", "weight": true}, {"from": "sid92", "to": "sid92", "weight": true}, {"from": "sid92", "to": "sid1116", "weight": true}, {"from": "sid297", "to": "sid297", "weight": true}, {"from": "sid297", "to": "sid876", "weight": true}, {"from": "sid297", "to": "sid940", "weight": true}, {"from": "sid327", "to": "sid327", "weight": true}, {"from": "sid327", "to": "sid852", "weight": true}, {"from": "sid385", "to": "sid385", "weight": true}, {"from": "sid395", "to": "sid395", "weight": true}, {"from": "sid395", "to": "sid832", "weight": true}, {"from": "sid395", "to": "sid884", "weight": true}, {"from": "sid395", "to": "sid940", "weight": true}, {"from": "sid406", "to": "sid406", "weight": true}, {"from": "sid406", "to": "sid824", "weight": true}, {"from": "sid406", "to": "sid849", "weight": true}, {"from": "sid406", "to": "sid852", "weight": true}, {"from": "sid406", "to": "sid1034", "weight": true}, {"from": "sid406", "to": "sid1337", "weight": true}, {"from": "sid424", "to": "sid424", "weight": true}, {"from": "sid424", "to": "sid1006", "weight": true}, {"from": "sid450", "to": "sid450", "weight": true}, {"from": "sid450", "to": "sid832", "weight": true}, {"from": "sid456", "to": "sid456", "weight": true}, {"from": "sid490", "to": "sid490", "weight": true}, {"from": "sid490", "to": "sid967", "weight": true}, {"from": "sid490", "to": "sid994", "weight": true}, {"from": "sid490", "to": "sid1063", "weight": true}, {"from": "sid551", "to": "sid551", "weight": true}, {"from": "sid551", "to": "sid839", "weight": true}, {"from": "sid551", "to": "sid848", "weight": true}, {"from": "sid551", "to": "sid987", "weight": true}, {"from": "sid557", "to": "sid557", "weight": true}, {"from": "sid734", "to": "sid734", "weight": true}, {"from": "sid734", "to": "sid852", "weight": true}, {"from": "sid736", "to": "sid736", "weight": true}, {"from": "sid736", "to": "sid940", "weight": true}, {"from": "sid821", "to": "sid821", "weight": true}, {"from": "sid821", "to": "sid872", "weight": true}, {"from": "sid821", "to": "sid1002", "weight": true}, {"from": "sid824", "to": "sid824", "weight": true}, {"from": "sid824", "to": "sid852", "weight": true}, {"from": "sid824", "to": "sid915", "weight": true}, {"from": "sid824", "to": "sid942", "weight": true}, {"from": "sid827", "to": "sid827", "weight": true}, {"from": "sid832", "to": "sid832", "weight": true}, {"from": "sid832", "to": "sid884", "weight": true}, {"from": "sid832", "to": "sid1002", "weight": true}, {"from": "sid832", "to": "sid1034", "weight": true}, {"from": "sid833", "to": "sid833", "weight": true}, {"from": "sid833", "to": "sid1116", "weight": true}, {"from": "sid834", "to": "sid834", "weight": true}, {"from": "sid834", "to": "sid876", "weight": true}, {"from": "sid834", "to": "sid1916", "weight": true}, {"from": "sid839", "to": "sid839", "weight": true}, {"from": "sid848", "to": "sid848", "weight": true}, {"from": "sid849", "to": "sid849", "weight": true}, {"from": "sid849", "to": "sid1916", "weight": true}, {"from": "sid852", "to": "sid852", "weight": true}, {"from": "sid852", "to": "sid915", "weight": true}, {"from": "sid852", "to": "sid1928", "weight": true}, {"from": "sid852", "to": "sid1956", "weight": true}, {"from": "sid872", "to": "sid872", "weight": true}, {"from": "sid876", "to": "sid876", "weight": true}, {"from": "sid876", "to": "sid1337", "weight": true}, {"from": "sid876", "to": "sid1916", "weight": true}, {"from": "sid880", "to": "sid880", "weight": true}, {"from": "sid880", "to": "sid1966", "weight": true}, {"from": "sid881", "to": "sid881", "weight": true}, {"from": "sid884", "to": "sid884", "weight": true}, {"from": "sid884", "to": "sid1002", "weight": true}, {"from": "sid915", "to": "sid915", "weight": true}, {"from": "sid940", "to": "sid940", "weight": true}, {"from": "sid940", "to": "sid944", "weight": true}, {"from": "sid942", "to": "sid942", "weight": true}, {"from": "sid944", "to": "sid944", "weight": true}, {"from": "sid952", "to": "sid952", "weight": true}, {"from": "sid960", "to": "sid960", "weight": true}, {"from": "sid965", "to": "sid965", "weight": true}, {"from": "sid967", "to": "sid967", "weight": true}, {"from": "sid967", "to": "sid1006", "weight": true}, {"from": "sid967", "to": "sid1063", "weight": true}, {"from": "sid983", "to": "sid983", "weight": true}, {"from": "sid987", "to": "sid987", "weight": true}, {"from": "sid994", "to": "sid994", "weight": true}, {"from": "sid994", "to": "sid1917", "weight": true}, {"from": "sid1002", "to": "sid1002", "weight": true}, {"from": "sid1006", "to": "sid1006", "weight": true}, {"from": "sid1006", "to": "sid1917", "weight": true}, {"from": "sid1022", "to": "sid1022", "weight": true}, {"from": "sid1022", "to": "sid1039", "weight": true}, {"from": "sid1025", "to": "sid1025", "weight": true}, {"from": "sid1034", "to": "sid1034", "weight": true}, {"from": "sid1038", "to": "sid1038", "weight": true}, {"from": "sid1039", "to": "sid1039", "weight": true}, {"from": "sid1039", "to": "sid1116", "weight": true}, {"from": "sid1055", "to": "sid1055", "weight": true}, {"from": "sid1056", "to": "sid1056", "weight": true}, {"from": "sid1063", "to": "sid1063", "weight": true}, {"from": "sid1113", "to": "sid1113", "weight": true}, {"from": "sid1116", "to": "sid1116", "weight": true}, {"from": "sid1337", "to": "sid1337", "weight": true}, {"from": "sid1913", "to": "sid1913", "weight": true}, {"from": "sid1915", "to": "sid1915", "weight": true}, {"from": "sid1916", "to": "sid1916", "weight": true}, {"from": "sid1917", "to": "sid1917", "weight": true}, {"from": "sid1928", "to": "sid1928", "weight": true}, {"from": "sid1956", "to": "sid1956", "weight": true}, {"from": "sid1966", "to": "sid1966", "weight": true}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
