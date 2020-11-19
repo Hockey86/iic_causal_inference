@@ -318,7 +318,10 @@ class Simulator(BaseSimulator):
         self.fit_res = self.stan_model.sampling(data=data_feed,
                                        iter=self.max_iter, verbose=True,
                                        chains=1, seed=self.random_state)
-        print(self.fit_res.stansummary(pars=['alpha']))
+        if self.N>100:
+            print(self.fit_res.stansummary(pars=['sigma_alpha']))
+        else:
+            print(self.fit_res.stansummary(pars=['alpha']))
         #print(self.fit_res.stansummary(pars=['log_lik']))
         pars = self.fit_res.model_pars
         pars = [x for x in pars if x not in ['A', 'err', 'ones_b', 'tmp1', 'pos']]

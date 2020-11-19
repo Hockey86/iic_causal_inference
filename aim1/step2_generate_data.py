@@ -171,10 +171,6 @@ if __name__=='__main__':
         save_path = os.path.join(output_dir, sid+'.mat')
         #if os.path.exists(save_path):
         #    continue
-        if os.path.exists(save_path):
-            aa = sio.loadmat(save_path)
-            if 'spec' in aa:
-                continue
         res = {}#sio.loadmat(save_path)
         
         ## get label

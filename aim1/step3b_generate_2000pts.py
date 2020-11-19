@@ -59,14 +59,18 @@ if __name__=='__main__':
             cluster.append(df_cluster['12_Cluster'].iloc[closest_id])
     cluster = np.array(cluster)
 
-    # exclude patients with flat IIC
-    std_thres = 0.01
-    keep_ids = np.array([np.nanstd(Pobs[i])>std_thres for i in range(len(sids))])
+    print('%d patients'%len(sids))
+    
+    # exclude patients with IIC = 0
+    keep_ids = np.array([np.nanmax(Pobs[i])>0 for i in range(len(sids))])
     # exclude patients with short signal
     min_len = 30
     keep_ids &= np.array([len(D[i])>=min_len for i in range(len(sids))])
+    # exclude patients with missing dose
+    keep_ids &= np.array([~np.any(np.isnan(D[i])) for i in range(len(sids))])
     # exclude patients with no drug
-    keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
+    #keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
+    
     keep_ids = np.where(keep_ids)[0]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
@@ -76,8 +80,11 @@ if __name__=='__main__':
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     print('%d patients'%len(sids))
 
+    """
     # # remove flat drug at the beginning or end
 
+    #starts = []
+    #ends = []
     for i in range(len(sids)):
         d = D[i].sum(axis=1)
 
@@ -104,8 +111,35 @@ if __name__=='__main__':
 
         Pobs[i] = Pobs[i][start:end]
         D[i] = D[i][start:end]
+        #starts.append(start)
+        #ends.append(end)
 
     keep_ids = np.where([len(D[i])>=min_len for i in range(len(sids))])[0]
+    sids = [sids[i] for i in keep_ids]
+    Pobs = [Pobs[i] for i in keep_ids]
+    D = [D[i] for i in keep_ids]
+    Y = Y[keep_ids]
+    C = C[keep_ids]
+    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    print('%d patients'%len(sids))
+    """
+    
+    # # remove subjects with long continuous NaN in Pobs
+    thres = 0.3
+    keep_ids = []
+    for i in range(len(sids)):
+        p = np.array(Pobs[i])
+        p[np.isnan(p)] = -999
+
+        good = True
+        for j, k in groupby(p):
+            if j==-999:
+                ll = len(list(k))
+                if ll/len(p)>thres:
+                    good = False
+                    break
+        if good:
+            keep_ids.append(i)
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
@@ -139,6 +173,7 @@ if __name__=='__main__':
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     print('%d patients'%len(sids))
     
+    import pdb;pdb.set_trace()
     with open('data_to_fit_CNNIIC.pickle', 'wb') as f:
         pickle.dump({'W':W, 'D':D, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':Pname,

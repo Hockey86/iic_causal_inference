@@ -11,14 +11,14 @@ from simulator import *
 
 if __name__=='__main__':
 
-    #data_path = '../data_to_fit_humanIIC.pickle'
-    data_path = '../data_to_fit_CNNIIC.pickle'
+    #data_type = 'humanIIC'
+    data_type = 'CNNIIC'
     
-    with open(data_path, 'rb') as f:
+    with open(f'../data_to_fit_{data_type}.pickle', 'rb') as f:
         res = pickle.load(f)
     for k in res:
         exec(f'{k} = res["{k}"]')
-    W = 300 #TODO
+    W = 300 #TODO include into pickle
 
     random_state = 2020
 
@@ -35,20 +35,20 @@ if __name__=='__main__':
     # # define and infer model
 
     model_type = str(sys.argv[1])
-    stan_path = 'stan_models/model_%s.stan'%model_type
+    stan_path = f'stan_models/model_{model_type}.stan'
     
-    max_iter = 10#00
+    max_iter = 100#0
     if model_type=='baseline':
-        model_path = 'results/model_fit_%s_iter%d.pkl'%(model_type, max_iter)
-        output_path = 'results/results_%s_iter%d.pickle'%(model_type, max_iter)
+        model_path = f'results/model_fit_{data_type}_{model_type}_iter{max_iter}.pkl'
+        output_path = f'results/results_{data_type}_{model_type}_iter{max_iter}.pickle'
         AR_p = 2
         simulator = BaselineSimulator(AR_p, W, random_state=random_state)
 
     elif 'ARMA' in model_type:
         AR_p = int(sys.argv[2])
         MA_q = int(sys.argv[3])
-        model_path = 'results/model_fit_%s%d,%d_iter%d.pkl'%(model_type, AR_p, MA_q, max_iter)
-        output_path = 'results/results_%s%d,%d_iter%d.pickle'%(model_type, AR_p, MA_q, max_iter)
+        model_path = f'results/model_fit_{data_type}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pkl'
+        output_path = f'results/results_{data_type}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pickle'
         simulator = Simulator(stan_path, W, T0=[AR_p, MA_q], max_iter=max_iter, random_state=random_state)
         
     simulator.fit(D, Pobs, cluster)
