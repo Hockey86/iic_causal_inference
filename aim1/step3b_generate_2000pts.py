@@ -45,7 +45,7 @@ if __name__=='__main__':
     Cname = Cname[1:]
 
     # get cluster
-    df_cluster = pd.read_csv('Cluster_2000pts_using_C.csv')
+    df_cluster = pd.read_csv('Cluster_2000pts_using_C_2clusters.csv')
     sids2 = list(df_cluster.Index)
     cluster = []
     C2 = (C-np.nanmean(C,axis=0))/np.nanstd(C,axis=0)
@@ -69,7 +69,7 @@ if __name__=='__main__':
     # exclude patients with missing dose
     keep_ids &= np.array([~np.any(np.isnan(D[i])) for i in range(len(sids))])
     # exclude patients with no drug
-    #keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
+    keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
     
     keep_ids = np.where(keep_ids)[0]
     sids = [sids[i] for i in keep_ids]
@@ -80,7 +80,6 @@ if __name__=='__main__':
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     print('%d patients'%len(sids))
 
-    """
     # # remove flat drug at the beginning or end
 
     #starts = []
@@ -122,7 +121,6 @@ if __name__=='__main__':
     C = C[keep_ids]
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     print('%d patients'%len(sids))
-    """
     
     # # remove subjects with long continuous NaN in Pobs
     thres = 0.3

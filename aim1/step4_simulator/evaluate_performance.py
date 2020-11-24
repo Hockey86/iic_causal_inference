@@ -6,16 +6,20 @@ from tqdm import tqdm
 from simulator import *
 
 
+
+#data_type = 'humanIIC'
+data_type = 'CNNIIC'
+
 #models = ['normal_expit_ARMA1,6', 'cauchy_expit_ARMA1,6', 'cauchy_expit_lognormal_ARMA1,6', 'cauchy_expit_lognormal_drugoutside_ARMA1,6', 'cauchy_expit_a0_as_lognormal_drugoutside_ARMA1,6', 'baseline']
-models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6', 'cauchy_expit_lognormal_drugoutside_ARMA3,6']
-max_iter = [1000]*len(models)
+models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6']
+max_iter = [100]*len(models)
 metrics = ['WAIC', 'spearmanr', 'KL-divergence', 'loglikelihood', 'CI95 Coverage']#, 'stRMSE']
 W = 300
 random_state = 2020
 
 perf = {}
 for model, metric in product(models, metrics):
-    with open('results/results_%s_iter%d.pickle'%(model, max_iter[models.index(model)]), 'rb') as ff:
+    with open('results/results_%s_%s_iter%d.pickle'%(data_type, model, max_iter[models.index(model)]), 'rb') as ff:
         res = pickle.load(ff)
     Psim = res['Psim']
     Pobs = res['Pobs']
@@ -26,12 +30,12 @@ for model, metric in product(models, metrics):
         AR_T0 = 0
         MA_T0 = 6
         simulator = Simulator(None, W, T0=[AR_T0, MA_T0], max_iter=max_iter, random_state=random_state)
-        simulator.load_model('results/model_fit_%s_iter%d.pkl'%(model, max_iter[models.index(model)]))
+        simulator.load_model('results/model_fit_%s_%s_iter%d.pkl'%(data_type, model, max_iter[models.index(model)]))
     elif 'ARMA' in model:
         AR_T0 = int(model[-2:-1])
         MA_T0 = int(model[-1:])
         simulator = Simulator(None, W, T0=[AR_T0, MA_T0], max_iter=max_iter, random_state=random_state)
-        simulator.load_model('results/model_fit_%s_iter%d.pkl'%(model, max_iter[models.index(model)]))
+        simulator.load_model('results/model_fit_%s_%s_iter%d.pkl'%(data_type, model, max_iter[models.index(model)]))
     elif model=='baseline':
         AR_T0 = 2
         simulator = BaselineSimulator(AR_T0, W, random_state=random_state)

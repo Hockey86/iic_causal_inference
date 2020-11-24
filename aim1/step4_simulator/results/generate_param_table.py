@@ -3,21 +3,24 @@ import numpy as np
 import pandas as pd
 
 
-with open('../data_to_fit.pickle', 'rb') as f:
+#data_type = 'humanIIC'
+data_type = 'CNNIIC'
+
+with open(f'../../data_to_fit_{data_type}.pickle', 'rb') as f:
     res = pickle.load(f)
-    for k in res:
-        exec('%s = res[\'%s\']'%(k,k))
+for k in res:
+    exec('%s = res[\'%s\']'%(k,k))
        
-model = 'cauchy_expit_ARMA'       
-AR_p = 1
+model = 'cauchy_expit_lognormal_drugoutside_ARMA'       
+AR_p = 2
 MA_q = 6
-maxiter = 1000   
+maxiter = 100
 N = len(sids)
 Ndrug = len(Dname)
-with open('model_fit_%s%d%d_iter%d.pkl'%(model, AR_p, MA_q, maxiter), 'rb') as ff:
-    stan_model, fit_res = pickle.load(ff)
-df_params = fit_res.to_dataframe(diagnostics=False)
-df_params = df_params.drop(columns=['chain', 'draw', 'warmup', 'lp__'])
+with open('model_fit_%s_%s%d,%d_iter%d.pkl'%(data_type, model, AR_p, MA_q, maxiter), 'rb') as ff:
+    stan_model, df_params = pickle.load(ff)
+#df_params = fit_res.to_dataframe(diagnostics=False)
+#df_params = df_params.drop(columns=['chain', 'draw', 'warmup', 'lp__'])
 df_params = df_params.mean(axis=0)  # take posterior mean of parameters
 
 data = {'SID':sids, 'cluster':cluster}
@@ -51,5 +54,7 @@ for i in range(N):
 df = pd.DataFrame(data=data)
 df_C = pd.DataFrame(data=C, columns=Cname)
 df = pd.concat([df, df_C], axis=1)
-df.to_csv('params_%s%d%d_iter%d.csv'%(model, AR_p, MA_q, maxiter), index=False)
+df = df.rename(columns={'b[%d]'%(i+1,):'b[%s]'%Dname[i] for i in range(len(Dname))})
+import pdb;pdb.set_trace()
+df.to_csv('params_%s_%s%d,%d_iter%d.csv'%(data_type, model, AR_p, MA_q, maxiter), index=False)
 
