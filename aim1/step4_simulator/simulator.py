@@ -377,7 +377,7 @@ class Simulator(BaseSimulator):
             if self.T0[1]>0:
                 pars.extend(['theta','sigma_err'])
                 pars_shape.extend([(self.T0[1],), (Ncluster,)])
-                pars_shape0_is_N.extend([False, False, False])
+                pars_shape0_is_N.extend([False, False])
             if 'student_t' in model_type:
                 pars.append('nu')
                 pars_shape.append((Ncluster,))

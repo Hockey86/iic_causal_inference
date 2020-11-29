@@ -37,7 +37,7 @@ if __name__=='__main__':
     model_type = str(sys.argv[1])
     stan_path = f'stan_models/model_{model_type}.stan'
     
-    max_iter = 100
+    max_iter = 1000
     if model_type=='baseline':
         model_path = f'results/model_fit_{data_type}_{model_type}_iter{max_iter}.pkl'
         output_path = f'results/results_{data_type}_{model_type}_iter{max_iter}.pickle'

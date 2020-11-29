@@ -12,7 +12,7 @@ data_type = 'CNNIIC'
 
 #models = ['normal_expit_ARMA1,6', 'cauchy_expit_ARMA1,6', 'cauchy_expit_lognormal_ARMA1,6', 'cauchy_expit_lognormal_drugoutside_ARMA1,6', 'cauchy_expit_a0_as_lognormal_drugoutside_ARMA1,6', 'baseline']
 models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6']
-max_iter = [100]*len(models)
+max_iter = [1000]*len(models)
 metrics = ['WAIC', 'spearmanr', 'KL-divergence', 'loglikelihood', 'CI95 Coverage']#, 'stRMSE']
 W = 300
 random_state = 2020

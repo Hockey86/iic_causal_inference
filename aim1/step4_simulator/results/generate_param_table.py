@@ -14,7 +14,7 @@ for k in res:
 model = 'cauchy_expit_lognormal_drugoutside_ARMA'       
 AR_p = 2
 MA_q = 6
-maxiter = 100
+maxiter = 1000
 N = len(sids)
 Ndrug = len(Dname)
 with open('model_fit_%s_%s%d,%d_iter%d.pkl'%(data_type, model, AR_p, MA_q, maxiter), 'rb') as ff:
@@ -55,6 +55,5 @@ df = pd.DataFrame(data=data)
 df_C = pd.DataFrame(data=C, columns=Cname)
 df = pd.concat([df, df_C], axis=1)
 df = df.rename(columns={'b[%d]'%(i+1,):'b[%s]'%Dname[i] for i in range(len(Dname))})
-import pdb;pdb.set_trace()
 df.to_csv('params_%s_%s%d,%d_iter%d.csv'%(data_type, model, AR_p, MA_q, maxiter), index=False)
 
