@@ -1,0 +1,8 @@
+python fit_simulator.py baseline
+python fit_simulator.py normal_expit_ARMA 1 6
+python fit_simulator.py cauchy_expit_ARMA 1 6
+python fit_simulator.py cauchy_expit_lognormal_ARMA 1 6
+python fit_simulator.py cauchy_expit_lognormal_drugoutside_ARMA 1 6
+python fit_simulator.py cauchy_expit_a0_as_lognormal_drugoutside_ARMA 1 6
+python fit_simulator.py cauchy_expit_lognormal_drugoutside_ARMA 2 6
+python fit_simulator.py cauchy_expit_lognormal_drugoutside_ARMA 3 6

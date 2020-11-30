@@ -1,3 +1,4 @@
+from dateutil.parser import parse
 import re
 import glob
 import os
@@ -8,11 +9,34 @@ from tqdm import tqdm
 
 if __name__=='__main__':
     
-    master_sheet_path = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019.xlsx'
-    master_sheet = pd.read_excel(master_sheet_path, sheet_name='All Corrections Included')
-    master_sheet = master_sheet[~pd.isna(master_sheet.MRN)].reset_index(drop=True)
-    master_sheet.MRN = master_sheet.MRN.astype(int)
+    # read master sheet
+    master_list = pd.read_excel('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019.xlsx', sheet_name='All Corrections Included')
+    # there are errors, fix
+    master_list.loc[(master_list.Index=='sid1242')&(master_list['Date of admission ']==parse('10/23/2014')), 'The start day of first EEG'] = parse('10/24/2014 16:46')
+    master_list = master_list[master_list.Index!='sid522'].reset_index(drop=True)
+    master_list.loc[master_list.Index=='sid1044', 'dateCMO/W-LST, in DC, if not search in QPID (CMO)                no CMO=0'] = parse('1/24/2017')
+
+    # remove duplicate patients by taking earlies admission
+    mrns = sorted(set(master_list.MRN))
+    ids = []
+    for mrn in mrns:
+        id_ = np.where(master_list.MRN==mrn)[0]
+        if len(set(master_list.Index.iloc[id_]))==len(id_):
+            ids.extend(id_)
+        else:
+            dates = master_list['Date of admission '].iloc[id_].values
+            ids.append(id_[np.argmin(dates)])
+    print(f'Removing {len(master_list)-len(ids)} duplicate patients by taking the earliest admission')
+    print(f'Before: row={len(master_list)}; After: row={len(ids)}')
+    master_list = master_list.iloc[ids].reset_index(drop=True)
+    master_list['The start day of first EEG'] = pd.to_datetime(master_list['The start day of first EEG'])
+    master_list['Index2'] = [int(x[len('sid'):]) for x in master_list.Index]
+    master_list = master_list.sort_values('Index2').reset_index(drop=True)
+    assert len(set(master_list.Index))==len(master_list)
+    #assert len(set(master_list.MRN))==len(master_list)
+    master_list.to_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019_HaoqiCorrected.csv', index=False)
     
+    """
     sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
         'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
         'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
@@ -32,7 +56,9 @@ if __name__=='__main__':
          'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
          'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
          'sid1113', 'sid1116']
-    patient_mrn_set = [master_sheet.MRN[master_sheet.Index==sid].values[0] for sid in sids]
+    patient_mrn_set = [master_list.MRN[master_list.Index==sid].values[0] for sid in sids]
+    """
+    patient_mrn_set = list(master_list.MRN)
     
     NSAED_list = ['levetiracetam', 'lacosamide', 'lorazepam', 'phenytoin',
                  'fosphenytoin', 'phenobarbital', 'carbamazepine',
@@ -98,6 +124,8 @@ if __name__=='__main__':
                                        'Unit':'Dose_Unit',})
     drug_df = pd.concat([drug_df, drug_df2], axis=0)
 
-    output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'
-    drug_df.to_csv(os.path.join(output_dir, 'drug_data.csv'), index=False)
+    #output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'
+    output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data'
+    import pdb;pdb.set_trace()
+    drug_df.to_csv(os.path.join(output_dir, 'drug_data_2000pts.csv'), index=False)
 
