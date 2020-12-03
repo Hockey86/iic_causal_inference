@@ -19,7 +19,10 @@ if __name__=='__main__':
                     'pentobarbital','phenobarbital',# 'phenytoin',
                     'propofol', 'valproate']
     PK_K = get_pk_k()
-
+    
+    #response_tostudy = 'iic_burden'
+    response_tostudy = 'spike_rate'
+    
     ## preprocess data
     
     W = 300
@@ -30,14 +33,14 @@ if __name__=='__main__':
     #spec = []
     #freq = []
     for sid in tqdm(sids):
-        Pobs_, Pname, D_, Dname, C_, Cname, Y_ = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy)
+        Pobs_, Pname, D_, Dname, C_, Cname, Y_ = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy)
         Pobs.append(Pobs_)
         D.append(D_)
         C.append(C_)
         Y.append(Y_)
         #spec.append(spec_)
         #freq.append(freq_)
-
+    import pdb;pdb.set_trace()
     Y = np.array(Y)
     C = np.array(C)
     #sids = C[:,0].astype(str)
@@ -172,7 +175,7 @@ if __name__=='__main__':
     print('%d patients'%len(sids))
     
     import pdb;pdb.set_trace()
-    with open('data_to_fit_CNNIIC.pickle', 'wb') as f:
+    with open('data_to_fit_CNNIIC_%s.pickle'%response_tostudy, 'wb') as f:
         pickle.dump({'W':W, 'D':D, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':Pname,
                      'cluster':cluster, 'sids':sids,

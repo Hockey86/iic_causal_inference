@@ -162,15 +162,10 @@ if __name__=='__main__':
     SAED_list = ['propofol', 'midazolam',  'ketamine', 'pentobarbital']
     Dnames = SAED_list + NSAED_list
     
-    eeg_group1_paths = os.listdir(os.path.join(eeg_dir, 'Group1'))
-    eeg_group2_paths = os.listdir(os.path.join(eeg_dir, 'Group2'))
-    
     ## preprocess clinical variables
     sids_no_iic = []
-    for sid in tqdm(sids):
+    for sid in tqdm(sids[84:]):
         save_path = os.path.join(output_dir, sid+'.mat')
-        #if os.path.exists(save_path):
-        #    continue
         res = {}#sio.loadmat(save_path)
         
         ## get label
@@ -232,8 +227,8 @@ if __name__=='__main__':
         master_list_id = np.where(master_list.Index==sid)[0][0]
         sid2 = 'sid%04d'%int(sid[3:])
         sid_path = None
-        for group_name in ['Group1', 'Group2']:
-            group_paths = eval('eeg_'+group_name.lower()+'_paths')
+        for group_name in ['Group1', 'Group2', 'Group3']:
+            group_paths = os.listdir(os.path.join(eeg_dir, group_name))
             group_ids = np.where([re.search(sid2+'[a-z]*', x, re.IGNORECASE) is not None for x in group_paths])[0]
             if len(group_ids)==1:
                 sid_path = os.path.join(eeg_dir, group_name, group_paths[group_ids[0]], 'Data')

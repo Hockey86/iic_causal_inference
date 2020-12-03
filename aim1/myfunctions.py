@@ -73,12 +73,11 @@ def patient(path, W):
     return res
 
 
-def preprocess(sid, data_dir, PK_K, W, drugs_tostudy):  # previsously called patient_data
+def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy):  # previsously called patient_data
     #fetch the data
     p = patient(os.path.join(data_dir, sid + '.mat'), W)
 
     #setting up the data
-    response_tostudy = 'iic_burden'
     Pobs = p[response_tostudy]
 
     #PK
