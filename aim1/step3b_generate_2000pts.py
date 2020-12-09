@@ -20,8 +20,8 @@ if __name__=='__main__':
                     'propofol', 'valproate']
     PK_K = get_pk_k()
     
-    #response_tostudy = 'iic_burden'
-    response_tostudy = 'spike_rate'
+    response_tostudy = 'iic_burden'
+    #response_tostudy = 'spike_rate'
     
     ## preprocess data
     
@@ -40,7 +40,6 @@ if __name__=='__main__':
         Y.append(Y_)
         #spec.append(spec_)
         #freq.append(freq_)
-    import pdb;pdb.set_trace()
     Y = np.array(Y)
     C = np.array(C)
     #sids = C[:,0].astype(str)
@@ -48,7 +47,7 @@ if __name__=='__main__':
     Cname = Cname[1:]
 
     # get cluster
-    df_cluster = pd.read_csv('Cluster_2000pts_using_C_2clusters.csv')
+    df_cluster = pd.read_csv('Cluster_2000pts_using_C_12clusters.csv')
     sids2 = list(df_cluster.Index)
     cluster = []
     C2 = (C-np.nanmean(C,axis=0))/np.nanstd(C,axis=0)

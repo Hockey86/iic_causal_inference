@@ -41,12 +41,15 @@ def patient(path, W):
     
     if 'iic' in mat:
         iic = mat['iic'].flatten().astype(float)
+        if 'artifact' in mat:
+            iic[artifact==1] = np.nan
+        nan_ids = np.isnan(iic)
         iic_burden = np.in1d(iic, [1,2,3,4]).astype(float)
-        iic_burden[np.isnan(iic)] = np.nan
+        iic_burden[nan_ids] = np.nan
         iic_burden_window = np.array([np.nanmean(iic_burden[i:i+window]) for i in range(0, len(iic_burden),step)])
         res['iic_burden'] = iic_burden_window
         sz_burden = (iic==1).astype(float)
-        sz_burden[np.isnan(iic)] = np.nan
+        sz_burden[nan_ids] = np.nan
         sz_burden_window = np.array([np.nanmean(sz_burden[i:i+window]) for i in range(0, len(sz_burden),step)])
         res['sz_burden'] = sz_burden_window
         

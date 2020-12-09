@@ -19,7 +19,7 @@ class BaseSimulator(object):
     def load_model(self, path):
         print('loading model from %s'%path)
         with open(path, 'rb') as f:
-            self.stan_model, self.fit_res_df = pickle.load(f)#, self.ma_models
+            self.stan_model, self.fit_res_df, self.Ncluster = pickle.load(f)#, self.ma_models
         return self
 
     def save_model(self, path):
@@ -27,7 +27,7 @@ class BaseSimulator(object):
         #    pickle.dump([self.stan_model, self.fit_res], f)#, self.ma_models
         # save dataframe instead to avoid big file size
         with open(path, 'wb') as f:
-            pickle.dump([self.stan_model, self.fit_res_df], f)
+            pickle.dump([self.stan_model, self.fit_res_df, self.Ncluster], f)
     
     @property
     def waic(self):

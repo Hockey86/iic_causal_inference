@@ -10,6 +10,11 @@ import matplotlib
 matplotlib.rcParams.update({'font.size': 16})
 
 
+#data_type = 'humanIIC'
+data_type = 'CNNIIC'
+response_tostudy = 'iic_burden'
+#response_tostudy = 'spike_rate'
+
 W = 300
 max_iter = 1000
 Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
@@ -17,7 +22,8 @@ Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
           'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['cauchy_expit_lognormal_drugoutside_ARMA16']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
+models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
+cnn_iic_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
     
 for model in models:
     print(model)
@@ -25,13 +31,34 @@ for model in models:
     figure_dir = 'simulation_global_figures/%s'%model
     if not os.path.exists(figure_dir):
         os.mkdir(figure_dir)
-    with open('../results/results_%s_iter%d.pickle'%(model, max_iter), 'rb') as ff:
+    with open(f'../results_{response_tostudy}/results_{data_type}_{model}_iter{max_iter}.pickle', 'rb') as ff:
         res  = pickle.load(ff)
     for k in res:
         exec('%s = res[\'%s\']'%(k,k))
-    vmin, vmax = np.nanpercentile(np.concatenate([x.flatten() for x in spec]), (5, 95))
     
+    # get vmin and vmax
+    """
+    sids_subset = np.random.choice(sids, 50)
+    specs_subset = []
+    for sid in sids_subset:
+        mat = sio.loadmat(os.path.join(cnn_iic_dir, sid+'.mat'))
+        spec = mat['spec'].flatten()
+        spec[np.isinf(spec)] = np.nan
+        spec = spec[~np.isnan(spec)]
+        specs_subset.append(spec)
+    specs_subset = np.concatenate(specs_subset)
+    #vmin, vmax = np.percentile(specs_subset, (5, 95))
+    """
+    vmin = -20
+    vmax = 20
+    
+        
     for si, sid in enumerate(tqdm(sids)):
+        mat = sio.loadmat(os.path.join(cnn_iic_dir, sid+'.mat'))
+        spec = mat['spec']
+        spec[np.isinf(spec)] = np.nan
+        freq = mat['spec_freq'].flatten()
+        
         T = len(Pobs[si])
         tt = np.arange(T)*W*2/3600
         P_ = Pobs[si]*100
@@ -41,11 +68,11 @@ for model in models:
         gs = GridSpec(3, 1, figure=fig)
         
         ax1 = fig.add_subplot(gs[0,0])
-        ax1.imshow(spec[si].T, cmap='jet', aspect='auto', origin='lower',
+        ax1.imshow(spec.T, cmap='jet', aspect='auto', origin='lower',
                    vmin=vmin, vmax=vmax,
-                   extent=(tt.min(), tt.max(), freq[si].min(), freq[si].max()))
+                   extent=(tt.min(), tt.max(), freq.min(), freq.max()))
         ax1.set_xlim([tt.min(), tt.max()])
-        ax1.set_ylim([freq[si].min(), freq[si].max()])
+        ax1.set_ylim([freq.min(), freq.max()])
         ax1.set_ylabel('freq (Hz)')
         
         ax2 = fig.add_subplot(gs[1,0])
