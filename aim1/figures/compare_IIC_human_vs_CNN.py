@@ -4,7 +4,6 @@ import os
 import numpy as np
 import scipy.io as sio
 from sklearn.metrics import confusion_matrix, cohen_kappa_score, f1_score
-from hmmlearn.hmm import MultinomialHMM
 from tqdm import tqdm
 import matplotlib
 matplotlib.rc('pdf', fonttype=42)
@@ -14,71 +13,6 @@ import seaborn as sns
 sns.set_style('ticks')
 
 
-def get_startprob(seqs, n_components, pseudocount=1):
-    startprob = np.zeros(n_components)+pseudocount
-    for seq in seqs:
-        nan_indicator = np.isnan(seq)
-        cc = 0
-        for isnan, l in groupby(nan_indicator):
-            ll = len(list(l))
-            if not isnan:
-                first_value = int(seq[cc])
-                startprob[first_value] += 1
-                break
-            cc += ll
-        
-    startprob = startprob/startprob.sum()
-    return startprob
-
-
-def get_transmat(seqs, n_components, pseudocount=1):
-    transmat = np.zeros((n_components, n_components))+pseudocount
-    for seq in seqs:
-        nan_indicator = np.isnan(seq)
-        cc = 0
-        for isnan, l in groupby(nan_indicator):
-            ll = len(list(l))
-            if not isnan:
-                seq_ = seq[cc:cc+ll].astype(int)
-                pair_counter = Counter([(seq_[i], seq_[i+1]) for i in range(len(seq_)-1)])
-                for kk, vv in pair_counter.items():
-                    transmat[kk[0],kk[1]] += vv
-            cc += ll
-    transmat = transmat/transmat.sum(axis=1, keepdims=True)
-    return transmat
-
-
-def get_emissionprob(seqs, seqs_obs, n_components, pseudocount=1):
-    emissionprob = np.zeros((n_components, n_components))+pseudocount
-    for seq, seq_obs in zip(seqs, seqs_obs):
-        nan_indicator = np.isnan(seq) | np.isnan(seq_obs)
-        cc = 0
-        for isnan, l in groupby(nan_indicator):
-            ll = len(list(l))
-            if not isnan:
-                seq_ = seq[cc:cc+ll].astype(int)
-                seq_obs_ = seq_obs[cc:cc+ll].astype(int)
-                pair_counter = Counter([(seq_[i], seq_obs_[i]) for i in range(len(seq_))])
-                for kk, vv in pair_counter.items():
-                    emissionprob[kk[0],kk[1]] += vv
-            cc += ll
-    emissionprob = emissionprob/emissionprob.sum(axis=1, keepdims=True)
-    return emissionprob
-    
-
-def hmmpredict(hmm, seq):
-    res = np.zeros_like(seq)+np.nan
-    nan_indicator = np.isnan(seq)
-    cc = 0
-    for isnan, l in groupby(nan_indicator):
-        ll = len(list(l))
-        if not isnan:
-            seq_ = seq[cc:cc+ll].astype(int)
-            res[cc:cc+ll] = hmm.predict(seq_.reshape(-1,1))
-        cc += ll
-    return res
-    
-    
     
 if __name__=='__main__':
     random_state = 2020
@@ -144,7 +78,6 @@ if __name__=='__main__':
         
         cnn_iics2.append(cnn_iic2)
         
-        continue
         tt = np.arange(len(human_iic))*2/3600
         plt.close()
         fig = plt.figure(figsize=(12,10))
