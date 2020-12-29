@@ -10,6 +10,7 @@ def predict(D, A_start, cluster, t0, sigma0, alpha0, alpha, theta, sigma_err, b,
     T, N, ND = D.shape
     N_sample = t0.shape[0]
     P_output = np.zeros((N_sample, N, T))+np.nan
+    
     for n in tqdm(range(N_sample)):
         err = cauchy.rvs(loc=0, scale=np.tile(sigma_err[n][cluster], (T,1)).T)
         err = err.reshape(N,-1)

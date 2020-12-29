@@ -406,9 +406,12 @@ class Simulator(BaseSimulator):
             for k in range(self.ND):
                 col_maps[f'sigma_b[1,{k+1}]'] = f'sigma_b[{j+1},{k+1}]'
             ids = np.where(cluster==j)[0]
+            ids2 = np.where(cluster2==j)[0]
             for k in ['t0', 'sigma0', 'alpha0']:
                 for n in range(len(ids)):
                     col_maps[f'{k}[{n+1}]'] = f'{k}[{ids[n]+1}]'
+            for n in range(len(ids2)):
+                col_maps[f'log_lik[{n+1}]'] = f'log_lik[{ids2[n]+1}]'
             for k in range(self.ND):
                 for n in range(len(ids)):
                     col_maps[f'b[{n+1},{k+1}]'] = f'b[{ids[n]+1},{k+1}]'
@@ -527,12 +530,12 @@ class Simulator(BaseSimulator):
         data_feed.update(data_feed2)
 
         exec(f'from stan_models.model_{model_type}_predict import predict', globals())
-        P = predict(data_feed['D'], data_feed['A_start'], data_feed['cluster'],
-                    data_feed['t0'], data_feed['sigma0'],
-                    data_feed['alpha0'], data_feed['alpha'],
-                    data_feed['theta'], data_feed['sigma_err'],
-                    data_feed['b'], data_feed['W'],
-                    data_feed['AR_p'], data_feed['MA_q'],
+        P = predict(data_feed.get('D'), data_feed.get('A_start'), data_feed.get('cluster'),
+                    data_feed.get('t0'), data_feed.get('sigma0'),
+                    data_feed.get('alpha0'), data_feed.get('alpha'),
+                    data_feed.get('theta'), data_feed.get('sigma_err'),
+                    data_feed.get('b'), data_feed.get('W'),
+                    data_feed.get('AR_p'), data_feed.get('MA_q'),
                     random_state=self.random_state)
         
         """
