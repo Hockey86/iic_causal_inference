@@ -53,8 +53,8 @@ if __name__=='__main__':
         output_path = f'results_{response_tostudy}/results_{data_type}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pickle'
         simulator = Simulator(stan_path, W, T0=[AR_p, MA_q], max_iter=max_iter, random_state=random_state)
         
-    simulator.fit(D, Pobs, cluster)
-    simulator.fit_parallel(D, Pobs, cluster, n_jobs=8)
+    #simulator.fit(D, Pobs, cluster)
+    simulator.fit_parallel(D, Pobs, cluster, n_jobs=12)
     simulator.save_model(model_path)
     #simulator.load_model(model_path)
     Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_p] for i in range(len(Pobs))]))
