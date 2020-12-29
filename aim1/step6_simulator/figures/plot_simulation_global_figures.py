@@ -17,12 +17,12 @@ response_tostudy = 'iic_burden'
 
 W = 300
 max_iter = 1000
-Dnames = ['lacosamide', 'levetiracetam', 'midazolam', 
-          #'pentobarbital','phenobarbital',# 'phenytoin',
-          'propofol', 'valproate']
+Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
+            'pentobarbital','phenobarbital',# 'phenytoin',
+            'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['cauchy_expit_a0_as_lognormal_drugoutside_ARMA2,6']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
+models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
 cnn_iic_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
     
 with open('../../data_to_fit_CNNIIC_%s.pickle'%response_tostudy, 'rb') as f:

@@ -3,10 +3,12 @@ import os
 import pickle
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from scipy.stats import binom, spearmanr
 from scipy.special import expit as sigmoid
 from scipy.special import logit
-from statsmodels.tsa.arima_model import ARMA
+#from statsmodels.tsa.arima_model import ARMA
+from tqdm import tqdm
 from hashlib import md5
 import pystan
 
@@ -23,9 +25,7 @@ class BaseSimulator(object):
         return self
 
     def save_model(self, path):
-        #with open(path, 'wb') as f:
-        #    pickle.dump([self.stan_model, self.fit_res], f)#, self.ma_models
-        # save dataframe instead to avoid big file size
+        # save dataframe to avoid big file size
         with open(path, 'wb') as f:
             pickle.dump([self.stan_model, self.fit_res_df, self.Ncluster], f)
     
@@ -249,40 +249,36 @@ class Simulator(BaseSimulator):
         else:
             return D2, E2, P2
 
-    def convert_to_ragged_structure(self, D, P, W):
-        Ts = [len(x) for x in P]
-        Ts_nonan = [np.sum(~np.isnan(x)) for x in P]
+    def convert_to_ragged_structure(self, D, P, W, cluster):
+        Ts = np.array([len(x) for x in P])
+        Ts_nonan = np.array([np.sum(~np.isnan(x)) for x in P])
         D2 = np.concatenate(D, axis=0)
         P2 = np.concatenate(P, axis=0)
         E2 = P2*W
         E2[np.isnan(P2)] = -1
         E2 = np.round(E2).astype(int)
-        return D2, E2, P2, Ts, Ts_nonan
+        cluster2 = np.concatenate([[cluster[i]]*Ts[i] for i in range(len(Ts))])
+        return D2, E2, P2, cluster2, Ts, Ts_nonan
 
     def fit(self, D_, P_, cluster):
         """
-        D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
-        E: IIC burden, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
+        D_: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
+        P_: response, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
         cluster: Cluster assignment for the patients has shape(N,), with values [0,1,2...]
         """
         ## pad to same length
-        #D, E, P = self._pad_to_same_length(D_, P_, self.W)
-        D, E, P, Ts, Ts_nonan = self.convert_to_ragged_structure(D_, P_, self.W)
+        D, E, P, cluster2, Ts, Ts_nonan = self.convert_to_ragged_structure(D_, P_, self.W, cluster)
 
-        self.N = len(Ts)
-        #self.T = D.shape[1]
-        self.ND = D.shape[-1]
+        self.N = len(D_)
+        self.ND = D_[0].shape[-1]
         self.Ncluster = len(set(cluster.flatten()))
 
         # generate sample weights that balances different lengths
-        #sample_weights = np.zeros_like(E[:,self.T0[0]:]) + 1/(Ts_nonan-self.T0[0]).reshape(-1,1)#
-        #sample_weights = np.zeros_like(E) + 1/Ts_nonan.reshape(-1,1)#
         sample_weights = np.zeros_like(P)
         cc = 0
         for i in range(self.N):
             sample_weights[cc:cc+Ts[i]] = 1/Ts_nonan[i]
             cc += Ts[i]
-        #sample_weights = sample_weights.flatten()[not_empty_ids]#[:,self.T0[0]:]
         sample_weights = sample_weights/sample_weights.mean()
 
         ## load model
@@ -293,11 +289,8 @@ class Simulator(BaseSimulator):
         A = logit(np.clip(P, 1e-6, 1-1e-6))  #TODO move P-->A into stan
         A[empty_ids] = np.nan
         data_feed = {
-            'W':self.W,
-            'N':self.N,
-            'AR_p':self.T0[0],
-            'MA_q':self.T0[1],
-            'ND':self.ND,
+            'W':self.W, 'N':self.N, 'ND':self.ND,
+            'AR_p':self.T0[0], 'MA_q':self.T0[1],
 
             'total_len':len(E),
             'patient_lens':Ts,
@@ -315,37 +308,120 @@ class Simulator(BaseSimulator):
         if self.random_state is None:
             self.random_state = np.random.randint(10000)
 
-        self.fit_res = self.stan_model.sampling(data=data_feed,
+        fit_res = self.stan_model.sampling(data=data_feed,
                                        iter=self.max_iter, verbose=True,
                                        chains=1, seed=self.random_state)
         if self.N>100:
-            print(self.fit_res.stansummary(pars=['sigma_alpha']))
+            print(fit_res.stansummary(pars=['sigma_alpha']))
         else:
-            print(self.fit_res.stansummary(pars=['alpha']))
-        #print(self.fit_res.stansummary(pars=['log_lik']))
-        pars = self.fit_res.model_pars
+            print(fit_res.stansummary(pars=['alpha']))
+        pars = fit_res.model_pars
         pars = [x for x in pars if x not in ['A', 'err', 'ones_b', 'tmp1', 'pos']]
-        self.fit_res_df = self.fit_res.to_dataframe(pars=pars)
+        self.fit_res_df = fit_res.to_dataframe(pars=pars)
 
-        """
-        # fit MA to residual
-        Ep = self.predict(D_, cluster, Pstart=P2[:,:self.T0], MA=False)
-        self.ma_models = []
-        for i in range(len(Ep)):
-            try:
-                tti = Ep[i].shape[1]
-                ids = ~np.isnan(P[i][:tti])
-                if ids.sum()<10:
-                    raise ValueError
-                Ap = logit(np.clip(Ep[i].mean(axis=0), 1e-6, 1-1e-6))
-                residual = logit(P2[i][:tti][ids]) - Ap[ids]
-                ma_model = ARMA(residual, order=(0, self.T0[1]))
-                ma_model = ma_model.fit(disp=False)
-                self.ma_models.append(ma_model)
-            except Exception as ee:
-                self.ma_models.append(None)
-        """
+        return self
 
+    def fit_parallel(self, D_, P_, cluster, n_jobs=1):
+        """
+        D_: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
+        P_: response, [0-1], list of arrays, with different lengths. Each element has shape (T[i],)
+        cluster: Cluster assignment for the patients has shape(N,), with values [0,1,2...]
+        """
+        ## pad to same length
+        D, E, P, cluster2, Ts, Ts_nonan = self.convert_to_ragged_structure(D_, P_, self.W, cluster)
+
+        self.N = len(D_)
+        self.ND = D_[0].shape[-1]
+        self.Ncluster = len(set(cluster.flatten()))
+
+        # generate sample weights that balances different lengths
+        sample_weights = np.zeros_like(P)
+        cc = 0
+        for i in range(self.N):
+            sample_weights[cc:cc+Ts[i]] = 1/Ts_nonan[i]
+            cc += Ts[i]
+        sample_weights = sample_weights/sample_weights.mean()
+
+        ## load model
+        self.stan_model = self._get_stan_model(self.stan_model_path)
+
+        # data feed
+        empty_ids = np.isnan(P)
+        A = logit(np.clip(P, 1e-6, 1-1e-6))  #TODO move P-->A into stan
+        A[empty_ids] = np.nan
+        
+        if self.random_state is None:
+            self.random_state = np.random.randint(10000)
+        
+        def _inner_fit(data_feed, stan_model, max_iter, random_state):
+            fit_res = stan_model.sampling(data=data_feed,
+                                   iter=max_iter, verbose=True,
+                                   chains=1, seed=random_state)
+            pars = fit_res.model_pars
+            pars = [x for x in pars if x not in ['A', 'err', 'ones_b', 'tmp1', 'pos', 'log_lik']]
+            fit_res_df = fit_res.to_dataframe(pars=pars)
+            return fit_res, fit_res_df
+        
+        data_feeds = []
+        for j in range(self.Ncluster):
+            ids = cluster==j
+            ids2 = cluster2==j
+            data_feeds.append( {
+                'W':self.W, 'N':np.sum(ids), 'ND':self.ND,
+                'AR_p':self.T0[0], 'MA_q':self.T0[1],
+
+                'total_len':len(E[ids2]),
+                'patient_lens':Ts[ids],
+                'Eobs':E[ids2],
+                'Pobs':P[ids2],
+                'f_Eobs':A[ids2],
+                'sample_weights':sample_weights[ids2],
+                'D': D[ids2],  # because matrix[N,ND] D[T];
+
+                'NClust':1,
+                'cluster':np.zeros_like(cluster[ids]) +1,  # +1 because of Stan
+            } )
+            
+        ## sampling
+        fit_res = Parallel(n_jobs=n_jobs)(delayed(_inner_fit)(
+                    data_feeds[j],
+                    self.stan_model,
+                    self.max_iter,
+                    self.random_state) for j in range(self.Ncluster))
+
+        for j in range(self.Ncluster):
+            print('\nCluster', j)
+            if self.N>100:
+                print(fit_res[j][0].stansummary(pars=['sigma_alpha']))
+            else:
+                print(fit_res[j][0].stansummary(pars=['alpha']))
+
+        # combine
+        self.fit_res_df = []
+        for j in tqdm(range(self.Ncluster)):
+            fit_res_df = fit_res[j][1]
+            col_maps = {}
+            for k in ['sigma_alpha0', 'sigma_alpha', 'sigma_err', 'sigma_t0', 'sigma_sigma0']:
+                col_maps[f'{k}[1]'] = f'{k}[{j+1}]'
+            for k in range(self.ND):
+                col_maps[f'sigma_b[1,{k+1}]'] = f'sigma_b[{j+1},{k+1}]'
+            ids = np.where(cluster==j)[0]
+            for k in ['t0', 'sigma0', 'alpha0']:
+                for n in range(len(ids)):
+                    col_maps[f'{k}[{n+1}]'] = f'{k}[{ids[n]+1}]'
+            for k in range(self.ND):
+                for n in range(len(ids)):
+                    col_maps[f'b[{n+1},{k+1}]'] = f'b[{ids[n]+1},{k+1}]'
+            for k in range(self.T0[0]):
+                for n in range(len(ids)):
+                    col_maps[f'alpha[{n+1},{k+1}]'] = f'alpha[{ids[n]+1},{k+1}]'
+            fit_res_df = fit_res_df.rename(columns=col_maps)
+            for k in range(self.T0[1]):
+                for n in range(len(ids)):
+                    fit_res_df[f'theta[{ids[n]+1},{k+1}]'] = fit_res_df[f'theta[{k+1}]']
+            self.fit_res_df.append(fit_res_df)
+        self.fit_res_df = pd.concat(self.fit_res_df, axis=1)
+        
         return self
 
     def predict(self, D, cluster, Ncluster=None, sid_index=None, Pstart=None, posterior_mean=False):#, MA=True):
@@ -356,9 +432,6 @@ class Simulator(BaseSimulator):
         returns:
         P: simulated IIC burden, list of arrays, with different lengths. Each element has shape (Nsample, T[i])
         """
-
-        # load prediction model
-        self.predict_stan_model = self._get_stan_model(self.stan_model_path.replace('.stan', '_predict.stan'))
 
         model_type = os.path.basename(self.stan_model_path).replace('model_','').replace('.stan','')
         N = len(D)
@@ -376,8 +449,8 @@ class Simulator(BaseSimulator):
             pars_shape0_is_N = [True, True, True]
             if self.T0[1]>0:
                 pars.extend(['theta','sigma_err'])
-                pars_shape.extend([(self.T0[1],), (Ncluster,)])
-                pars_shape0_is_N.extend([False, False])
+                pars_shape.extend([(N,self.T0[1]), (Ncluster,)])
+                pars_shape0_is_N.extend([True, False])
             if 'student_t' in model_type:
                 pars.append('nu')
                 pars_shape.append((Ncluster,))
@@ -464,6 +537,7 @@ class Simulator(BaseSimulator):
         
         """
         # sample without inferring parameters
+        self.predict_stan_model = self._get_stan_model(self.stan_model_path.replace('.stan', '_predict.stan'))
         data_feed['cluster'] += 1  # +1 for stan
         self.predict_res = self.predict_stan_model.sampling(data=data_feed,
                                        iter=1, verbose=False,
@@ -496,15 +570,3 @@ class Simulator(BaseSimulator):
                     P[i][j] = sigmoid(Ap[j] + ww2)
         """
         return P
-
-
-class ParallelSimulator(Simulator):
-    """
-    Fit each cluster in parallel.
-    """
-    def fit(self, D_, P_, cluster):
-        Ncluster = len(set(cluster.flatten()))
-        for i in range(Ncluster):
-            ids = np.where(cluster==i)[0]
-            simulator = Simulator()
-            simulator.fit([D_[x] for x in ids], [P_[x] for x in ids], cluster[ids])

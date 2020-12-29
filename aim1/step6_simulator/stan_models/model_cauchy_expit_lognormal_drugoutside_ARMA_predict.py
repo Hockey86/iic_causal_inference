@@ -21,7 +21,7 @@ def predict(D, A_start, cluster, t0, sigma0, alpha0, alpha, theta, sigma_err, b,
             
             # MA(q)
             MA_q2 = min(MA_q, t)
-            P_output[n][:,t] += (theta[n][:MA_q2] * err[:,t-1::-1][:,:MA_q2]).sum(axis=1)
+            P_output[n][:,t] += (theta[n][:,:MA_q2] * err[:,t-1::-1][:,:MA_q2]).sum(axis=1)
 
         # drug
         P_output[n][:,AR_p:T] -= (D[AR_p-1:T-1] * b[n]).sum(axis=-1).T
