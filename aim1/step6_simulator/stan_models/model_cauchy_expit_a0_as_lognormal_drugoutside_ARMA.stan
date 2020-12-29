@@ -28,7 +28,7 @@ parameters {
     vector<lower=0.01,upper=10>[N] sigma0;
     //vector[N] alpha0;
     matrix<lower=-0.999,upper=0.999>[N, AR_p] alpha;// TODO general stationery constraint for AR(p)?
-    vector<lower=0>[ND] b[N];
+    vector<lower=0,upper=100>[ND] b[N];
     vector<lower=-0.1,upper=0.1>[MA_q] theta;//[NClust]
 }
 
