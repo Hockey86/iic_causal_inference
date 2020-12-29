@@ -12,7 +12,7 @@ data_type = 'CNNIIC'
 response_tostudy = 'iic_burden'
 #response_tostudy = 'spike_rate'
 
-models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6', 'cauchy_expit_a0_as_lognormal_drugoutside_ARMA2,6']
+models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6',] #'cauchy_expit_a0_as_lognormal_drugoutside_ARMA2,6']
 max_iter = [1000]*len(models)
 metrics = ['WAIC', 'spearmanr', 'KL-divergence', 'loglikelihood', 'CI95 Coverage']#, 'stRMSE']
 W = 300

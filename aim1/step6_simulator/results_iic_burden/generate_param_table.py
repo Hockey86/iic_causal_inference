@@ -1,3 +1,4 @@
+import sys
 import pickle
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ data_type = 'CNNIIC'
 response_tostudy = 'iic_burden'
 #response_tostudy = 'spike_rate'
 
-with open(f'../../data_to_fit_{data_type}_{response_tostudy}.pickle', 'rb') as f:
+with open(f'../../data_to_fit_{data_type}_{response_tostudy}_smooth.pickle', 'rb') as f:
     res = pickle.load(f)
 for k in res:
     exec('%s = res[\'%s\']'%(k,k))
@@ -20,7 +21,7 @@ maxiter = 1000
 N = len(sids)
 Ndrug = len(Dname)
 with open('model_fit_%s_%s%d,%d_iter%d.pkl'%(data_type, model, AR_p, MA_q, maxiter), 'rb') as ff:
-    stan_model, df_params_ = pickle.load(ff)
+    stan_model, df_params_, Ncluster = pickle.load(ff)
 
 for posterior_stat in ['mean', 'std']:
     if posterior_stat == 'mean':
@@ -39,7 +40,7 @@ for posterior_stat in ['mean', 'std']:
 
     # theta
     for q in range(1,MA_q+1):
-        data['theta[%d]'%q] = [df_params['theta[%d]'%q]]*N
+        data['theta[%d]'%q] = [df_params['theta[%d,%d]'%(i,q)] for i in range(1,N+1)]
         
     # sigma_err
     data['sigma_err'] = [df_params['sigma_err[%d]'%(cluster[i]+1,)] for i in range(N)]

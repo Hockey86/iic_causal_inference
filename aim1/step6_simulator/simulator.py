@@ -358,7 +358,7 @@ class Simulator(BaseSimulator):
                                    iter=max_iter, verbose=True,
                                    chains=1, seed=random_state)
             pars = fit_res.model_pars
-            pars = [x for x in pars if x not in ['A', 'err', 'ones_b', 'tmp1', 'pos', 'log_lik']]
+            pars = [x for x in pars if x not in ['A', 'err', 'ones_b', 'tmp1', 'pos']]
             fit_res_df = fit_res.to_dataframe(pars=pars)
             return fit_res, fit_res_df
         
