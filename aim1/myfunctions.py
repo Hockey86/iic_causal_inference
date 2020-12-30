@@ -35,7 +35,8 @@ def patient(path, W):
     step   = W
     res = {}
     mat = sio.loadmat(path)
-
+    res['PseudoMRN'] = mat['PseudoMRN'].flatten()[0]
+    
     drugs = mat['drugs_weightnormalized'].toarray().astype(float)
     drugnames = list(map(lambda x: x.strip(), mat['Dnames']))
     window_start_ids = np.arange(0,len(drugs),step)
@@ -81,15 +82,12 @@ def patient(path, W):
     return res
 
 
-def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, smooth=False):  # previsously called patient_data
+def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, outcome_tostudy):  # previsously called patient_data
     #fetch the data
     p = patient(os.path.join(data_dir, sid + '.mat'), W)
 
     #setting up the data
-    if smooth:
-        Pobs = p[response_tostudy+'_smooth']
-    else:
-        Pobs = p[response_tostudy]
+    Pobs = p[response_tostudy]
 
     #PK
     Ddose = np.array([p[x] for x in drugs_tostudy])
@@ -101,7 +99,9 @@ def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, smooth=F
     C = C[C.Index==sid].values[0]#[cov_tostudy]
     
     Y = pd.read_csv(os.path.join(data_dir, 'outcomes.csv'))
-    Y = Y['DC MRS (modified ranking scale)'][Y.Index==sid].values[0]#[cov_tostudy]
+    Y.loc[~Y[outcome_tostudy].astype(str).str.isnumeric(), outcome_tostudy]=np.nan
+    Y[outcome_tostudy] = Y[outcome_tostudy].astype(float)
+    Y = Y[outcome_tostudy][Y.Index==sid].values[0]#[cov_tostudy]
     
-    return Pobs, D, drugs_tostudy, C, Cname, Y, p['window_start_ids']#, p['spec'], p['freq']
+    return p['PseudoMRN'], Pobs, D, drugs_tostudy, C, Cname, Y, p['window_start_ids']#, p['spec'], p['freq']
     

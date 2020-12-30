@@ -13,15 +13,14 @@ if __name__=='__main__':
 
     #data_type = 'humanIIC'
     data_type = 'CNNIIC'
-    response_tostudy = 'iic_burden'
-    #response_tostudy = 'spike_rate'
+    #response_tostudy = 'iic_burden_smooth'
+    response_tostudy = 'spike_rate'
     
-    with open(f'../data_to_fit_{data_type}_{response_tostudy}_smooth.pickle', 'rb') as f:
+    with open(f'../data_to_fit_{data_type}_{response_tostudy}.pickle', 'rb') as f:
         res = pickle.load(f)
     for k in res:
         exec(f'{k} = res["{k}"]')
     W = 300 #TODO include into pickle
-
     random_state = 2020
 
     # standardize drugs

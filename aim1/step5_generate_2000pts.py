@@ -20,17 +20,15 @@ if __name__=='__main__':
                     'propofol', 'valproate']
     PK_K = get_pk_k()
     
-    response_tostudy = 'iic_burden'
-    #response_tostudy = 'spike_rate'
-    smooth = True
-    if smooth:
-        output_path = 'data_to_fit_CNNIIC_%s_smooth.pickle'%response_tostudy
-    else:
-        output_path = 'data_to_fit_CNNIIC_%s.pickle'%response_tostudy
+    #response_tostudy = 'iic_burden_smooth'
+    response_tostudy = 'spike_rate'
+    outcome_tostudy = 'DC MRS (modified ranking scale)'
+    output_path = 'data_to_fit_CNNIIC_%s.pickle'%response_tostudy
     
     ## preprocess data
     
     W = 300
+    pmrns = []
     Pobs = []
     D = []
     C = []
@@ -39,7 +37,8 @@ if __name__=='__main__':
     #spec = []
     #freq = []
     for sid in tqdm(sids):
-        Pobs_, D_, Dname, C_, Cname, Y_, ids = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy, smooth=smooth)
+        pmrn, Pobs_, D_, Dname, C_, Cname, Y_, ids = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy, outcome_tostudy)
+        pmrns.append(pmrn)
         Pobs.append(Pobs_)
         D.append(D_)
         C.append(C_)
@@ -81,6 +80,7 @@ if __name__=='__main__':
     keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
     
     keep_ids = np.where(keep_ids)[0]
+    pmrns = [pmrns[i] for i in keep_ids]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
@@ -125,6 +125,7 @@ if __name__=='__main__':
         #ends.append(end)
 
     keep_ids = np.where([len(D[i])>=min_len for i in range(len(sids))])[0]
+    pmrns = [pmrns[i] for i in keep_ids]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
@@ -150,6 +151,7 @@ if __name__=='__main__':
                     break
         if good:
             keep_ids.append(i)
+    pmrns = [pmrns[i] for i in keep_ids]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
@@ -177,6 +179,7 @@ if __name__=='__main__':
         window_start_ids[i] = window_start_ids[i][t:]
 
     keep_ids = np.where([len(D[i])>=min_len for i in range(len(sids))])[0]
+    pmrns = [pmrns[i] for i in keep_ids]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
@@ -191,6 +194,6 @@ if __name__=='__main__':
         pickle.dump({'W':W, 'window_start_ids':window_start_ids,
                      'D':D, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':response_tostudy,
-                     'cluster':cluster, 'sids':sids,
+                     'cluster':cluster, 'sids':sids, 'pseudoMRNs':pmrns,
                      'C':C, 'Cname':Cname, 'Y':Y}, f)
 
