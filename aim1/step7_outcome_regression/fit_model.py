@@ -339,19 +339,19 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
             continue
             
         if model_type=='ltr':
-            model_params = {'estimator__C':np.logspace(-3,1,5),#
+            model_params = {'estimator__C':np.logspace(-3,1,5),
                             'estimator__l1_ratio':np.arange(0.5,1,0.1),
                             'impute_KNN_K':[5,10,50],
                            }
             metric = make_scorer(lambda y,yp:spearmanr(y,yp).correlation)
             model = LTRPairwise(MyLogisticRegression(
-                                    class_weight=None,
-                                    random_state=random_state,
-                                    max_iter=1000,
-                                    bounds=bounds,),
-                                classes, class_weight='balanced', min_level_diff=2,
-                                binary_indicator=binary_indicator,
-                                verbose=False)
+                                class_weight=None,
+                                random_state=random_state,
+                                max_iter=1000,
+                                bounds=bounds,),
+                            classes, class_weight='balanced', min_level_diff=2,
+                            binary_indicator=binary_indicator,
+                            verbose=False)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -366,9 +366,9 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                 val = params[cvi][p]
                 if '__' in p:
                     pp = p.split('__')
-                    exec('model.%s.%s = %f'%(pp[0], pp[1], val))  # TODO assumes two levels
+                    exec(f'model.{pp[0]}.{pp[1]} = {val}')  # TODO assumes two levels
                 else:
-                    exec('model.%s = %f'%(p, val))
+                    exec(f'model.{p} = {val}')
             model.n_jobs = n_jobs
         model.fit(Xtr, ytr)
         
@@ -410,13 +410,13 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
     if refit:
         if model_type=='ltr':
             model = LTRPairwise(MyLogisticRegression(
-                                    class_weight=None,
-                                    random_state=random_state,
-                                    max_iter=1000,
-                                    bounds=bounds,),
-                                classes, class_weight='balanced', min_level_diff=2,
-                                binary_indicator=binary_indicator,
-                                verbose=False)
+                                class_weight=None,
+                                random_state=random_state,
+                                max_iter=1000,
+                                bounds=bounds,),
+                            classes, class_weight='balanced', min_level_diff=2,
+                            binary_indicator=binary_indicator,
+                            verbose=False)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -424,9 +424,9 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
             val = Counter([params[cvi][p] for cvi in range(Ncv)]).most_common()[0][0]
             if '__' in p:
                 pp = p.split('__')
-                exec('model.%s.%s = %f'%(pp[0], pp[1], val))  # TODO assumes two
+                exec(f'model.{pp[0]}.{pp[1]} = {val}')  # TODO assumes two
             else:
-                exec('model.%s = %f'%(p, val))
+                exec(f'model.{p} = {val}')
         model.fit(X, y)
             
         # calibrate
@@ -597,7 +597,7 @@ if __name__=='__main__':
             final_model = models[-1]
             print('tr score', cv_tr_score)
             print('te score', cv_te_score)
-    import pdb;pdb.set_trace()
+
     if Nbt>0:
         for idx in tr_scores_bt[0].index:
             print(idx)
