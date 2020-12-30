@@ -1,0 +1,62 @@
+Xname,coef
+mean_positive_dose_midazolam,5.261428799251384
+Midline shift with any reason ( Document Date),1.449850931056835
+Age,0.9290701486258048
+prim_dx_Respiratory disorders,0.918783581546144
+mean_positive_dose_pentobarbital,0.8959042314349362
+mean_dose_pentobarbital,0.8686860451434111
+max_dose_pentobarbital,0.6284634468275861
+hydrocephalus  (either on admission or during hospital course)   QPID,0.6033497071845558
+"premorbid MRS before admission  (modified ranking scale),before admission",0.5990200931938655
+Primary systemic dx Sepsis/Shock,0.5268667606988853
+mean_positive_dose_levetiracetam,0.3539184045548923
+mean_positive_dose_phenobarbital,0.3510981448167768
+mean_positive_dose_lacosamide,0.3396159224173132
+theta[3],0.2661365567106599
+mean_positive_dose_propofol,0.22260640599354686
+alpha[2],0.21585678324910354
+alpha0,0.20584043220149967
+max_dose_valproate,0.18581213140103878
+Hx COPD/ Asthma,0.15438378019865046
+alpha[1],0.145754241793624
+Hx DM,0.13453459487080302
+Hx CHF,0.11889753015666506
+"Hx other substance abuse, any time in their life",0.10659621726504134
+Hx cancer (other than CNS cancer),0.09303926545552961
+Hx CAD/MI,0.08430701884639696
+theta[5],0.0700903972793759
+sigma_err,0.061126904533146585
+theta[2],0.0523584215731279
+mean_dose_levetiracetam,0.030769357299356082
+b[levetiracetam],0.02772562541692569
+Gender,0.015568394169041506
+Hx of HLD,0.0
+Hx Sz /epilepsy,0.0
+Hx CNS cancer,0.0
+iMV  (initial (on admission) mechanical ventilation),0.0
+Hx ETOH abuse any time in their life (just when in the hx is mentioned),0.0
+Hx tobacco (including ex-smokers),0.0
+Hx brain surgery,0.0
+Hx CKD,0.0
+Hx HTN,0.0
+Hx CVA (including TIA),0.0
+neuro_dx_Seizures/status epilepticus,0.0
+"SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)",0.0
+b[propofol],-0.004426294123834713
+iGCS-Total,-0.015385813243255624
+theta[1],-0.030907809888010167
+marrital,-0.03502006963087952
+mean_positive_dose_valproate,-0.06635173116515963
+max_dose_propofol,-0.10131869633329335
+mean_dose_propofol,-0.11416701354226123
+mean_dose_lacosamide,-0.13841177409700167
+theta[6],-0.1880718170112646
+mean_dose_valproate,-0.1944108979859761
+theta[4],-0.19488204054968006
+mean_dose_phenobarbital,-0.20722495571254673
+max_dose_phenobarbital,-0.22162072815725725
+max_dose_lacosamide,-0.26505707480202206
+max_dose_levetiracetam,-0.35500153789627176
+Worst GCS in 1st 24,-0.5224002705919808
+max_dose_midazolam,-0.5725408218510325
+mean_dose_midazolam,-2.2874085481969084
