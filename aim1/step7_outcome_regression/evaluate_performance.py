@@ -88,9 +88,29 @@ if __name__ == '__main__':
         ys.append( df_pred.y.values )
         yps.append( df_pred.yp.values )
         yp_probs.append( df_pred[[f'prob({x})' for x in range(K)]].values )
-        yps_int.append( np.argmax(yp_probs, axis=1) )
+        yps_int.append( np.round(yps[-1]).astype(int) )
         
     figsize = (8,6)
+
+    # confusion matrix plot
+    cf = confusion_matrix(ys[0], yps_int[0])
+    cf2 = cf/cf.sum(axis=1,keepdims=True)*100
+    plt.close()
+    fig=plt.figure(figsize=figsize)
+    ax=fig.add_subplot(111)
+    sns.heatmap(cf2,annot=True,cmap='Blues')#,fmt='d')
+    ax.set_ylabel('Actual discharge mRS')
+    ax.set_xlabel('Predicted discharge mRS')
+    plt.tight_layout()
+    if display_type=='pdf':
+        plt.savefig('confusionmatrix_perc.pdf', dpi=600, bbox_inches='tight', pad_inches=0.05)
+    elif display_type=='png':
+        plt.savefig('confusionmatrix_perc.png', bbox_inches='tight', pad_inches=0.05)
+    else:
+        plt.show()
+    import pdb;pdb.set_trace()
+    
+    # boxplot
     plt.close()
     fig = plt.figure(figsize=figsize)
 
@@ -109,25 +129,6 @@ if __name__ == '__main__':
         plt.savefig('boxplot.png', bbox_inches='tight', pad_inches=0.05)
     else:
         plt.show()
-
-    """
-    # confusion matrix plot
-    cf = confusion_matrix(ys[0], yps_int[0])
-    plt.close()
-    fig=plt.figure(figsize=(12,9))
-    ax=fig.add_subplot(111)
-    sns.heatmap(np.flipud(cf.T),annot=True,cmap='Blues',fmt='d')
-    ax.set_yticklabels(np.arange(K)[::-1])
-    ax.set_xlabel('Actual discharge mRS')
-    ax.set_ylabel('Predicted discharge mRS')
-    plt.tight_layout()
-    if display_type=='pdf':
-        plt.savefig('confusionmatrix.pdf', dpi=600, bbox_inches='tight', pad_inches=0.05)
-    elif display_type=='png':
-        plt.savefig('confusionmatrix.png', bbox_inches='tight', pad_inches=0.05)
-    else:
-        plt.show()
-    """
     
     # AUC
     figsize = (8,8)
