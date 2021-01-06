@@ -12,7 +12,7 @@ matplotlib.rcParams.update({'font.size': 16})
 
 #data_type = 'humanIIC'
 data_type = 'CNNIIC'
-response_tostudy = 'iic_burden'
+response_tostudy = 'iic_burden_smooth'
 #response_tostudy = 'spike_rate'
 
 W = 300
@@ -22,7 +22,7 @@ Dnames = ['lacosamide', 'levetiracetam', 'midazolam',
             'propofol', 'valproate']
 ND = len(Dnames)
 #models = ['lognormal']#, 'AR1', 'AR2', 'PAR1', 'PAR2', 'lognormalAR1','lognormalAR2', 'baseline']
-models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6']#'normal_expit_ARMA16', 'student_t_expit_ARMA16', 
+models = ['cauchy_expit_lognormal_drugoutside_ARMA2,6', 'cauchy_expit_a0_as_lognormal_drugoutside_ARMA2,6']
 cnn_iic_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
     
 with open('../../data_to_fit_CNNIIC_%s.pickle'%response_tostudy, 'rb') as f:
@@ -32,7 +32,7 @@ window_start_ids = res['window_start_ids']
 for model in models:
     print(model)
     
-    figure_dir = 'simulation_global_figures/%s'%model
+    figure_dir = f'simulation_global_figures/{data_type}_{response_tostudy}_{model}'
     if not os.path.exists(figure_dir):
         os.mkdir(figure_dir)
     with open(f'../results_{response_tostudy}/results_{data_type}_{model}_iter{max_iter}.pickle', 'rb') as ff:
@@ -55,6 +55,12 @@ for model in models:
     """
     vmin = -20
     vmax = 20
+    if response_tostudy == 'spike_rate':
+        yscale = 60
+        ylim = [-1,61]
+    elif response_tostudy.startswith('iic_burden'):
+        yscale = 100
+        ylim = [-2,102]
     
     for si, sid in enumerate(tqdm(sids)):
         mat = sio.loadmat(os.path.join(cnn_iic_dir, sid+'.mat'))
@@ -65,7 +71,7 @@ for model in models:
         
         T = len(Pobs[si])
         tt = np.arange(T)*W*2/3600
-        P_ = Pobs[si]*100
+        P_ = Pobs[si]*yscale
         
         plt.close()
         fig = plt.figure(figsize=(12,8))
@@ -81,21 +87,25 @@ for model in models:
         
         ax2 = fig.add_subplot(gs[1,0])
         random_ids = np.random.choice(len(Psim[si]), 1, replace=False)
-        ax2.plot(tt, Psim[si][random_ids].T*100, c='r', label='simulated (one example)')
-        ax2.plot(tt, np.mean(Psim[si], axis=0)*100, c='b', ls='--', lw=2, label='mean')# and 95% CI
-        ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*100, c='b', ls='--', label='95% CI')
-        ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*100, c='b', ls='--')
+        ax2.plot(tt, Psim[si][random_ids].T*yscale, c='r', label='simulated (one example)')
+        ax2.plot(tt, np.mean(Psim[si], axis=0)*yscale, c='b', ls='--', lw=2, label='mean')# and 95% CI
         ax2.plot(tt, P_, lw=2, c='k', alpha=0.5, label='actual')
+        #ax2.plot(tt, np.percentile(Psim[si],2.5,axis=0)*yscale, c='b', ls='--', label='95% CI')
+        #ax2.plot(tt, np.percentile(Psim[si],97.5,axis=0)*yscale, c='b', ls='--')
+        ax2.fill_between(tt, np.percentile(Psim[si],2.5,axis=0)*yscale, np.percentile(Psim[si],97.5,axis=0)*yscale, color='b', alpha=0.05)
         #TODO
         #if 'lognormal' in model:
         #    tt2 = np.arange(1,T+1)
         #    val = alpha[si] * np.exp(-(np.log(tt2)-mu[si])**2 / (2* sigma[si]**2))#+t0[i]
         #    val = sigmoid(val)
-        #    ax2.plot(tt, val*100, c='m', label='no drug')
+        #    ax2.plot(tt, val*yscale, c='m', label='no drug')
         ax2.legend(fontsize=12, frameon=False, ncol=3)
         #ax2.set_xlabel('time (h)')
-        ax2.set_ylabel('IIC burden (%)')
-        ax2.set_ylim([-2,102])
+        if response_tostudy == 'spike_rate':
+            ax2.set_ylabel('Spike rate (/min)')
+        elif response_tostudy.startswith('iic_burden'):
+            ax2.set_ylabel('IIC burden (%)')
+        ax2.set_ylim(ylim)
         ax2.set_xlim([tt.min(), tt.max()])
         
         """
@@ -124,6 +134,5 @@ for model in models:
             ax3.set_yticks([])
         
         plt.tight_layout()
-        #plt.show()
         plt.savefig(os.path.join(figure_dir, '%s.png'%sids[si]))
         

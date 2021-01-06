@@ -6,10 +6,10 @@ import pandas as pd
 
 #data_type = 'humanIIC'
 data_type = 'CNNIIC'
-response_tostudy = 'iic_burden'
+response_tostudy = 'iic_burden_smooth'
 #response_tostudy = 'spike_rate'
 
-with open(f'../../data_to_fit_{data_type}_{response_tostudy}_smooth.pickle', 'rb') as f:
+with open(f'../../data_to_fit_{data_type}_{response_tostudy}.pickle', 'rb') as f:
     res = pickle.load(f)
 for k in res:
     exec('%s = res[\'%s\']'%(k,k))
@@ -61,5 +61,5 @@ for posterior_stat in ['mean', 'std']:
     df_C = pd.DataFrame(data=C, columns=Cname)
     df = pd.concat([df, df_C], axis=1)
     df = df.rename(columns={'b[%d]'%(i+1,):'b[%s]'%Dname[i] for i in range(len(Dname))})
-    df.to_csv(f'params_{posterior_stat}_{data_type}_{model}{AR_p},{MA_q}_iter{maxiter}.csv', index=False)
+    df.to_csv(f'params_{posterior_stat}_{data_type}_{response_tostudy}_{model}{AR_p},{MA_q}_iter{maxiter}.csv', index=False)
 
