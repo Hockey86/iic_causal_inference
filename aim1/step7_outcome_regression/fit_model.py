@@ -228,6 +228,56 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
     return models, params, cv_tr_score, cv_te_score, y_yp_te
     
 
+def read_data(folder, data_type, responses):
+    """
+    able to read and combine from different responses
+    """
+    res = {}
+    sids = set()  # common_sids
+    for response in responses:
+        with open(os.path.join(folder, f'data_to_fit_{data_type}_{response}.pickle'), 'rb') as f:
+            res[response] = pickle.load(f)
+        if len(sids)==0:
+            sids.update(res[response]['sids'])
+        else:
+            sids &= set(res[response]['sids'])
+    sids = np.array(sorted(sids, key=lambda x:int(x[len('sid'):])))
+    
+    Pobs = {}
+    data = {}
+    for k in ['W', 'Dname', 'Cname', 'Yname']:
+        data[k] = res[responses[0]][k]
+    for ri, response in enumerate(responses):
+        ids = [res[response]['sids'].index(sid) for sid in sids]
+        for k in res[response]:
+            if ri==0 and k in ['window_start_ids', 'D']:
+                data[k] = [res[response][k][x] for x in ids]
+            elif ri==0 and k in ['cluster', 'pseudoMRNs', 'C', 'Y']:
+                data[k] = np.array(res[response][k])[ids]
+            elif k=='Pobs':
+                Pobs[response] = [res[response][k][x] for x in ids]
+    
+    # MAP = 1/3 SBP + 2/3 DBP
+    # The sixth report of the Joint National Committee on prevention, detection, evaluation, and treatment of high blood pressure. [Arch Intern Med. 1997]
+    C = data['C']
+    Cname = data['Cname']
+    MAP = C[:,Cname.index('systolic BP')]/3+C[:,Cname.index('diastolic BP')]/3*2
+    C = np.c_[C, MAP]
+    Cname.append('mean arterial pressure')
+    
+    remove_names = [
+        #'SID', 'cluster',
+        'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS Intubation status', 'iGCS actual scores', 'APACHE II  first 24',
+        'systolic BP', 'diastolic BP',]
+    C = C[:,~np.in1d(Cname, remove_names)]
+    for x in remove_names:
+        Cname.remove(x)
+        
+    return sids, data['pseudoMRNs'], Pobs,\
+           data['D'], data['Dname'],\
+           C, Cname,\
+           data['Y'], data['Yname'],\
+           data['window_start_ids'], data['cluster'], data['W']
 
 if __name__=='__main__':
 
@@ -249,44 +299,7 @@ if __name__=='__main__':
     model = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
     maxiter = 1000
     
-    res = {}
-    sids = set()  # common_sids
-    for response in responses:
-        with open(f'../data_to_fit_{data_type}_{response}.pickle', 'rb') as f:
-            res[response] = pickle.load(f)
-        if len(sids)==0:
-            sids.update(res[response]['sids'])
-        else:
-            sids &= set(res[response]['sids'])
-    sids = np.array(sorted(sids, key=lambda x:int(x[len('sid'):])))
-    
-    Pobs = {}
-    for k in ['W', 'Dname', 'Cname', 'Yname']:
-        exec(f'{k} = res[responses[0]]["{k}"]')
-    for ri, response in enumerate(responses):
-        ids = [res[response]['sids'].index(sid) for sid in sids]
-        for k in res[response]:
-            if ri==0 and k in ['window_start_ids', 'D']:
-                res2 = [res[response][k][x] for x in ids]
-                exec(f'{k} = res2')
-            elif ri==0 and k in ['cluster', 'pseudoMRNs', 'C', 'Y']:
-                exec(f'{k} = np.array(res[response]["{k}"])[ids]')
-            elif k=='Pobs':
-                Pobs[response] = [res[response][k][x] for x in ids]
-    
-    # MAP = 1/3 SBP + 2/3 DBP
-    # The sixth report of the Joint National Committee on prevention, detection, evaluation, and treatment of high blood pressure. [Arch Intern Med. 1997]
-    MAP = C[:,Cname.index('systolic BP')]/3+C[:,Cname.index('diastolic BP')]/3*2
-    C = np.c_[C, MAP]
-    Cname.append('mean arterial pressure')
-    
-    remove_names = [
-        #'SID', 'cluster',
-        'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS Intubation status', 'iGCS actual scores', 'APACHE II  first 24',
-        'systolic BP', 'diastolic BP',]
-    C = C[:,~np.in1d(Cname, remove_names)]
-    for x in remove_names:
-        Cname.remove(x)
+    sids, pseudoMRNs, Pobs, D, Dname, C, Cname, Y, Yname, window_start_ids, cluster, W = read_data('..', data_type, responses)
     
     if input_type=='simulator_param':
         all_sim_names = ['alpha0', 'alpha[1]', 'alpha[2]', 'theta[1]',

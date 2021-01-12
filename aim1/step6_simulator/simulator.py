@@ -427,6 +427,8 @@ class Simulator(BaseSimulator):
         
         return self
 
+    #TODO def predict_incr
+    
     def predict(self, D, cluster, Ncluster=None, sid_index=None, Pstart=None, posterior_mean=False):#, MA=True):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)

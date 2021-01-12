@@ -40,16 +40,16 @@ if __name__=='__main__':
     
     max_iter = 1000
     if model_type=='baseline':
-        model_path = f'results_{response_tostudy}/model_fit_{data_type}_{model_type}_iter{max_iter}.pkl'
-        output_path = f'results_{response_tostudy}/results_{data_type}_{model_type}_iter{max_iter}.pickle'
+        model_path = f'results_{response_tostudy}/model_fit_{data_type}_{response_tostudy}_{model_type}_iter{max_iter}.pkl'
+        output_path = f'results_{response_tostudy}/results_{data_type}_{response_tostudy}_{model_type}_iter{max_iter}.pickle'
         AR_p = 2
         simulator = BaselineSimulator(AR_p, W, random_state=random_state)
 
     elif 'ARMA' in model_type:
         AR_p = int(sys.argv[2])
         MA_q = int(sys.argv[3])
-        model_path = f'results_{response_tostudy}/model_fit_{data_type}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pkl'
-        output_path = f'results_{response_tostudy}/results_{data_type}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pickle'
+        model_path = f'results_{response_tostudy}/model_fit_{data_type}_{response_tostudy}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pkl'
+        output_path = f'results_{response_tostudy}/results_{data_type}_{response_tostudy}_{model_type}{AR_p},{MA_q}_iter{max_iter}.pickle'
         simulator = Simulator(stan_path, W, T0=[AR_p, MA_q], max_iter=max_iter, random_state=random_state)
         
     #simulator.fit(D, Pobs, cluster)

@@ -20,7 +20,7 @@ MA_q = 6
 maxiter = 1000
 N = len(sids)
 Ndrug = len(Dname)
-with open('model_fit_%s_%s%d,%d_iter%d.pkl'%(data_type, model, AR_p, MA_q, maxiter), 'rb') as ff:
+with open(f'model_fit_{data_type}_{response_tostudy}_{model}{AR_p},{MA_q}_iter{maxiter}.pkl', 'rb') as ff:
     stan_model, df_params_, Ncluster = pickle.load(ff)
 
 for posterior_stat in ['mean', 'std']:
