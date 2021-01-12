@@ -20,8 +20,8 @@ if __name__=='__main__':
                     'propofol', 'valproate']
     PK_K = get_pk_k()
     
-    #response_tostudy = 'iic_burden_smooth'
-    response_tostudy = 'spike_rate'
+    response_tostudy = 'iic_burden_smooth'
+    #response_tostudy = 'spike_rate'
     outcome_tostudy = 'DC MRS (modified ranking scale)'
     output_path = 'data_to_fit_CNNIIC_%s.pickle'%response_tostudy
     
@@ -194,6 +194,7 @@ if __name__=='__main__':
         pickle.dump({'W':W, 'window_start_ids':window_start_ids,
                      'D':D, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':response_tostudy,
-                     'cluster':cluster, 'sids':sids, 'pseudoMRNs':pmrns,
-                     'C':C, 'Cname':Cname, 'Y':Y}, f)
+                     'C':C, 'Cname':Cname,
+                     'Y':Y, 'Yname':outcome_tostudy,
+                     'cluster':cluster, 'sids':sids, 'pseudoMRNs':pmrns,}, f)
 

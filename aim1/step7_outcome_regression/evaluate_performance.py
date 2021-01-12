@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from scipy.stats import linregress
+from scipy.stats import linregress, norm, spearmanr
 from sklearn.metrics import confusion_matrix, cohen_kappa_score, roc_auc_score, roc_curve
 from sklearn.calibration import calibration_curve
 from tqdm import tqdm
@@ -73,12 +73,10 @@ if __name__ == '__main__':
     else:
         print('te score:', te_scores_bt[0])
 
-    """
     df_coef = pd.DataFrame(data={'Xname':Xnames, 'coef':coefs_bt[0]})
     df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
     df_coef.to_csv('coef.csv', index=False)
-    """
-
+    
     df_pred_all = pd.read_csv('cv_predictions_%s_Nbt%d.csv'%(model_type, Nbt))
     #df_pred_all = df_pred[df_pred.bti==0].reset_index(drop=True)
     # use all bootstraps
@@ -88,8 +86,40 @@ if __name__ == '__main__':
         ys.append( df_pred.y.values )
         yps.append( df_pred.yp.values )
         yp_probs.append( df_pred[[f'prob({x})' for x in range(K)]].values )
-        yps_int.append( np.round(yps[-1]).astype(int) )
-        
+        yps_int.append( df_pred.yp_int.values )
+    
+    corrs = []
+    acc0s = []; acc1s = []; acc2s = []
+    for i in tqdm(range(10000)):
+        ids = np.arange(len(ys[0]))
+        if i>0:
+            np.random.shuffle(ids)
+        corrs.append( spearmanr(ys[0][ids], yps[0])[0] )
+        acc0s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=0) )
+        acc1s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=1) )
+        acc2s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=2) )
+    perm_mean = np.mean(corrs[1:])
+    perm_std = np.std(corrs[1:])
+    pval = norm.cdf(corrs[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'Spearman\'s R = {corrs[0]}. Permuted = {perm_mean} (95% CI {np.percentile(corrs[1:],2.5)} -- {np.percentile(corrs[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc0s[1:])
+    perm_std = np.std(acc0s[1:])
+    pval = norm.cdf(acc0s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(0) = {acc0s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc0s[1:],2.5)} -- {np.percentile(acc0s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc1s[1:])
+    perm_std = np.std(acc1s[1:])
+    pval = norm.cdf(acc1s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(1) = {acc1s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc1s[1:],2.5)} -- {np.percentile(acc1s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc2s[1:])
+    perm_std = np.std(acc2s[1:])
+    pval = norm.cdf(acc2s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(2) = {acc2s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc2s[1:],2.5)} -- {np.percentile(acc2s[1:],97.5)}). P-value = {pval}')
+
+    import pdb;pdb.set_trace()
     figsize = (8,6)
 
     # confusion matrix plot
@@ -99,7 +129,7 @@ if __name__ == '__main__':
     fig=plt.figure(figsize=figsize)
     ax=fig.add_subplot(111)
     sns.heatmap(cf2,annot=True,cmap='Blues')#,fmt='d')
-    ax.set_ylabel('Actual discharge mRS')
+    ax.set_ylabel('discharge mRS')
     ax.set_xlabel('Predicted discharge mRS')
     plt.tight_layout()
     if display_type=='pdf':
@@ -108,7 +138,6 @@ if __name__ == '__main__':
         plt.savefig('confusionmatrix_perc.png', bbox_inches='tight', pad_inches=0.05)
     else:
         plt.show()
-    import pdb;pdb.set_trace()
     
     # boxplot
     plt.close()
@@ -117,7 +146,7 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111)
     ax.scatter(ys[0]+1+np.random.randn(len(ys[0]))/20, yps[0], s=20, alpha=0.2, color='k')
     ax.boxplot([yps[0][ys[0]==i] for i in range(K)], labels=range(K))
-    ax.set_xlabel('Actual discharge mRS')
+    ax.set_xlabel('discharge mRS')
     ax.set_ylabel('Predicted discharge mRS')
     sns.despine()
 

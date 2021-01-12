@@ -33,6 +33,15 @@ class MyCalibrator:
         return yp2
 
 
+def get_sample_weights(y, class_weight='balanced', prior_count=0):
+    assert y.min()==0 ## assume y=[0,1,...]
+    K = y.max()+1
+    class_weights = {k:1./(np.sum(y==k)+prior_count) for k in range(K)}
+    sw = np.array([class_weights[yy] for yy in y])
+    sw = sw/np.mean(sw)
+    return sw
+    
+    
 class MyLogisticRegression(LogisticRegression):
     """
     Allows bounds

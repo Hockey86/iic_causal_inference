@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 import copy
+import sys
 from collections import Counter, defaultdict
 import os
 import pickle
@@ -22,8 +23,7 @@ def get_sample_weights(y, class_weight='balanced', prior_count=0):
     return sw
 
 
-def get_perf(model_type, y, yp, yp_prob):
-    yp_int = np.argmax(yp_prob, axis=1)
+def get_perf(model_type, y, yp_int, yp, yp_prob):
     if model_type=='ltr':
         perf = pd.Series(
             data=[
@@ -171,11 +171,12 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
         model.fit(Xtr, ytr)
         
         yptr_z = model.base_estimator.predict(Xtr)
+        yptr_int = np.argmax(model.base_estimator.predict_proba(Xtr), axis=1)
         yptr = model.predict(Xtr)
         yptr_prob = model.predict_proba(Xtr)
         
         models.append(model)
-        cv_tr_score.append(get_perf(model_type, ytr, yptr, yptr_prob))
+        cv_tr_score.append(get_perf(model_type, ytr, yptr_int, yptr, yptr_prob))
         
         if len(cv_sids)>0:
             Xte = X[teids]
@@ -183,15 +184,16 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
             sids_te = sids[teids]
             
             ypte_z = model.base_estimator.predict(Xte)
+            ypte_int = np.argmax(model.base_estimator.predict_proba(Xte), axis=1)
             ypte = model.predict(Xte)
             ypte_prob = model.predict_proba(Xte)
             
             df_te = pd.DataFrame(
-                        data=np.c_[yte, ypte_z, ypte, ypte_prob],
-                        columns=['y', 'z', 'yp']+['prob(%d)'%k for k in classes])
+                        data=np.c_[yte, ypte_z, ypte_int, ypte, ypte_prob],
+                        columns=['y', 'z', 'yp_int', 'yp']+['prob(%d)'%k for k in classes])
             df_te['SID'] = sids_te
             y_yp_te.append(df_te)
-            cv_te_score.append(get_perf(model_type, yte, ypte, ypte_prob))
+            cv_te_score.append(get_perf(model_type, yte, ypte_int, ypte, ypte_prob))
     
     cv_tr_score = sum(cv_tr_score)/len(cv_tr_score)
     cv_te_score = sum(cv_te_score)/len(cv_te_score)
@@ -213,7 +215,7 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
             val = Counter([params[cvi][p] for cvi in range(Ncv)]).most_common()[0][0]
             if '__' in p:
                 pp = p.split('__')
-                exec(f'model.{pp[0]}.{pp[1]} = {val}')  # TODO assumes two
+                exec(f'model.{pp[0]}.{pp[1]} = {val}')  # TODO assumes two levels
             else:
                 exec(f'model.{p} = {val}')
         model.fit(X, y)
@@ -229,13 +231,16 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
 
 if __name__=='__main__':
 
+    input_type = str(sys.argv[1])#simulator_param or response
+    assert input_type in ['simulator_param', 'response']
+    
     #data_type = 'humanIIC'
     data_type = 'CNNIIC'
     
-    response_tostudy = 'iic_burden_smooth'
-    #response_tostudy = 'spike_rate'
-
-    Nbt = 1#000
+    responses = ['iic_burden_smooth', 'spike_rate']
+    responses_txt = '_'.join(responses)
+    
+    Nbt = 0
     Ncv = 5
     model_type = 'ltr'
     n_jobs = 12
@@ -244,26 +249,74 @@ if __name__=='__main__':
     model = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
     maxiter = 1000
     
-    with open(f'../data_to_fit_{data_type}_{response_tostudy}.pickle', 'rb') as f:
-        res = pickle.load(f)
-    for k in res:
-        exec(f'{k} = res["{k}"]')
-    pseudoMRNs = np.array(pseudoMRNs)
-        
-    df_simulator_params = pd.read_csv(f'../step6_simulator/results_{response_tostudy}/params_mean_{data_type}_{model}_iter{maxiter}.csv')
+    res = {}
+    sids = set()  # common_sids
+    for response in responses:
+        with open(f'../data_to_fit_{data_type}_{response}.pickle', 'rb') as f:
+            res[response] = pickle.load(f)
+        if len(sids)==0:
+            sids.update(res[response]['sids'])
+        else:
+            sids &= set(res[response]['sids'])
+    sids = np.array(sorted(sids, key=lambda x:int(x[len('sid'):])))
+    
+    Pobs = {}
+    for k in ['W', 'Dname', 'Cname', 'Yname']:
+        exec(f'{k} = res[responses[0]]["{k}"]')
+    for ri, response in enumerate(responses):
+        ids = [res[response]['sids'].index(sid) for sid in sids]
+        for k in res[response]:
+            if ri==0 and k in ['window_start_ids', 'D']:
+                res2 = [res[response][k][x] for x in ids]
+                exec(f'{k} = res2')
+            elif ri==0 and k in ['cluster', 'pseudoMRNs', 'C', 'Y']:
+                exec(f'{k} = np.array(res[response]["{k}"])[ids]')
+            elif k=='Pobs':
+                Pobs[response] = [res[response][k][x] for x in ids]
+    
     # MAP = 1/3 SBP + 2/3 DBP
     # The sixth report of the Joint National Committee on prevention, detection, evaluation, and treatment of high blood pressure. [Arch Intern Med. 1997]
-    simulator_param_names = list(df_simulator_params.columns)
-    sids = df_simulator_params.SID.values
-    df_simulator_params['mean arterial pressure'] = df_simulator_params['systolic BP']/3+df_simulator_params['diastolic BP']/3*2
+    MAP = C[:,Cname.index('systolic BP')]/3+C[:,Cname.index('diastolic BP')]/3*2
+    C = np.c_[C, MAP]
+    Cname.append('mean arterial pressure')
     
     remove_names = [
-        'SID', 'cluster',
+        #'SID', 'cluster',
         'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS Intubation status', 'iGCS actual scores', 'APACHE II  first 24',
-        'systolic BP', 'diastolic BP',
-        'b[lacosamide]', 'b[midazolam]', 'b[pentobarbital]', 'b[phenobarbital]', 'b[valproate]']
+        'systolic BP', 'diastolic BP',]
+    C = C[:,~np.in1d(Cname, remove_names)]
     for x in remove_names:
-        simulator_param_names.remove(x)
+        Cname.remove(x)
+    
+    if input_type=='simulator_param':
+        all_sim_names = ['alpha0', 'alpha[1]', 'alpha[2]', 'theta[1]',
+           'theta[2]', 'theta[3]', 'theta[4]', 'theta[5]', 'theta[6]', 'sigma_err',
+           #'b[lacosamide]',
+           'b[levetiracetam]',
+           #'b[midazolam]',
+           #'b[pentobarbital]',
+           #'b[phenobarbital]',
+           'b[propofol]',
+           #'b[valproate]'
+           ]
+        Xsim = []
+        sim_name = []
+        for response in responses:
+            df_sim = pd.read_csv(f'../step6_simulator/results_{response}/params_mean_{data_type}_{response}_{model}_iter{maxiter}.csv')
+            ids = [np.where(df_sim==sid)[0][0] for sid in sids]
+            Xsim.append( df_sim[all_sim_names].iloc[ids].values )
+            sim_name.extend([x+'_'+response for x in all_sim_names])
+        Xsim = np.concatenate(Xsim, axis=1)
+        
+    elif input_type=='response':
+        Xsim = np.zeros((len(sids), len(responses)))
+        sim_name = [x+'_mean' for x in responses]
+        for ri, response in enumerate(responses):
+            for i in range(len(Pobs[response])):
+                meanP = np.nanmean(Pobs[response][i])
+                if np.isnan(meanP):
+                    meanP = 0
+                Xsim[i,ri] = meanP
 
     # standardize drugs
     Dmax = []
@@ -282,16 +335,18 @@ if __name__=='__main__':
         pos_drug_mean = np.nanmean(Di, axis=0)
         pos_drug_mean[np.isnan(pos_drug_mean)] = 0
         D2.append(np.r_[
-            np.percentile(D[i], 99, axis=0),
-            np.mean(D[i], axis=0),
+            #np.percentile(D[i], 99, axis=0),
+            #np.mean(D[i], axis=0),
             pos_drug_mean,
             ])
-    Dnames = ['max_dose_'+x for x in Dname] + ['mean_dose_'+x for x in Dname] + ['mean_positive_dose_'+x for x in Dname]
+    #Dname = ['max_dose_'+x for x in Dname] + \
+    #        ['mean_dose_'+x for x in Dname] + \
+    Dname = ['mean_positive_dose_'+x for x in Dname]
     
     # create X and y
     y = Y
-    X = np.c_[np.array(D2), df_simulator_params[simulator_param_names].values]
-    Xnames = Dnames + simulator_param_names
+    X = np.c_[np.array(D2), Xsim, C]
+    Xnames = Dname + sim_name + Cname
     
     ids = ~np.isnan(y)
     y = y[ids].astype(int)
@@ -341,7 +396,7 @@ if __name__=='__main__':
             bounds.append((None, None))
     
     # generate CV split
-    cv_split_path = 'cv_split_Ncv%d_random_state%d.csv'%(Ncv, random_state)
+    cv_split_path = f'cv_split_Ncv{Ncv}_random_state{random_state}_{responses_txt}.csv'
     if not os.path.exists(cv_split_path):
         cv_split = np.zeros(len(X))
         for cvi, (_, teid) in enumerate(stratified_group_k_fold(X, y, pseudoMRNs, Ncv, seed=random_state)):
@@ -398,9 +453,11 @@ if __name__=='__main__':
                 te_scores_bt[0][idx],
                 np.percentile([x[idx] for x in te_scores_bt[1:]], 2.5),
                 np.percentile([x[idx] for x in te_scores_bt[1:]], 97.5),))
-    else:
-        print('tr score:', tr_scores_bt[0])
-        print('te score:', te_scores_bt[0])
+    
+    df_coef = pd.DataFrame(data={'coef':coefs_bt[0], 'name':Xnames})
+    df_coef = df_coef[['name', 'coef']]
+    df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
+    df_coef.to_csv(f'coef_{model_type}_{responses_txt}_{input_type}.csv', index=False)
     
     y_yps = []
     for bti, y_yp in enumerate(y_yp_bt):
@@ -411,9 +468,9 @@ if __name__=='__main__':
             y_yp_cv['cvi'] = np.zeros(N)+cvi
             y_yps.append(y_yp_cv[['bti', 'cvi']+cols])
     y_yps = pd.concat(y_yps, axis=0)
-    y_yps.to_csv('cv_predictions_%s_Nbt%d.csv'%(model_type, Nbt), index=False)
+    y_yps.to_csv(f'cv_predictions_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.csv', index=False)
     
-    with open('results_%s_Nbt%d.pickle'%(model_type, Nbt), 'wb') as ff:
+    with open(f'results_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.pickle', 'wb') as ff:
         pickle.dump({'tr_scores_bt':tr_scores_bt,
                      'te_scores_bt':te_scores_bt,
                      'coefs_bt':coefs_bt,
