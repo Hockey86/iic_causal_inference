@@ -243,7 +243,7 @@ if __name__=='__main__':
     Nbt = 0
     Ncv = 5
     model_type = 'ltr'
-    n_jobs = 12
+    n_jobs = 6
     random_state = 2020
     
     model = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
