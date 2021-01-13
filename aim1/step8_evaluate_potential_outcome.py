@@ -3,6 +3,7 @@ import pickle
 import sys
 import numpy as np
 from scipy.special import logit
+from joblib import Parallel, delayed
 from tqdm import tqdm
 SIMULATOR_PATH = 'step6_simulator'
 OUTCOME_PREDICTION_PATH = 'step7_outcome_regression'
@@ -48,6 +49,53 @@ def drug_from_data(data, Dmax=None):
 #def drug_from_policy():
 
 
+def evaluate_one_patient(i, D, Dname, Pobs, C, cluster, responses, simulator, outcome_model, drug_regime_func, AR_p):
+    # use simualtor to generate e
+    # use drug_regime_func to generate d
+    T, ND = D[i].shape
+    d = [np.zeros(ND)]*(AR_p-1)
+    e = {r:list(Pobs[r][i][:AR_p]) for r in responses}
+    A = {}
+    for t in range(AR_p, T):#tqdm()
+        # Dt = f(E1:t, D1:t-1, C)
+        d.append(drug_regime_func([e[r] for r in responses], d, C[i], Dname, i, t))
+        
+        # Et+1 = g(E1:t, D1:t, C)
+        for r in responses:
+            if t==AR_p:
+                A[r] = logit(np.clip(Pobs[r][i][:AR_p], 1e-6, 1-1e-6)).reshape(1,-1)
+            Esim, A[r] = simulator[r].predict(
+                    [np.r_[np.array(d), np.zeros((1,ND))]],
+                    cluster[[i]], sid_index=[i],
+                    Astart=A[r], return_A=True,
+                    verbose=False)
+            Esim = Esim[0][:,-1].mean(axis=0)  # averaging simulations
+            e[r].append(Esim)
+    d.append(np.zeros(ND)+np.nan) # fill the last drug with NaN, so not counted
+            
+    d = np.array(d)
+    e = {r:np.array(e[r]) for r in responses}
+    
+    # predict outcome
+    
+    Xsim = [e[r].mean() for r in responses]
+    #sim_name = [r+'_mean' for r in responses]
+    
+    Xdrug = np.array(d)
+    Xdrug[Xdrug<1e-6] = np.nan
+    Xdrug = np.nanmean(Xdrug, axis=0)
+    Xdrug[np.isnan(Xdrug)] = 0
+    #Dname2 = ['mean_positive_dose_'+x for x in Dname]
+
+    # create X and y
+    X = np.r_[Xdrug, Xsim, C[i]]
+    #Xnames = Dname2 + sim_name + Cname
+    yp = outcome_model.predict(X.reshape(1,-1))[0]
+    
+    return yp
+    
+    
+
 if __name__=='__main__':
     ## define vars
     
@@ -59,6 +107,7 @@ if __name__=='__main__':
     MA_q = 6
     max_iter = 1000
     Nbt = 0
+    n_jobs = 12
     random_state = 2020
     
     responses_txt = '_'.join(responses)
@@ -67,7 +116,6 @@ if __name__=='__main__':
     
     sids, pseudoMRNs, Pobs, D, Dname, C, Cname, Y, Yname, window_start_ids, cluster, W = read_data('.', data_type, responses)
     N = len(sids)
-    ND = len(Dname)
     
     ## load simulator
     
@@ -91,7 +139,7 @@ if __name__=='__main__':
     drug_regimes = {
         'always_zero':drug_from_constant(0, Dmax=Dmax),
         'always_propofol_0.01':drug_from_constant(1, Dmax=Dmax, drug='propofol'),
-        'actual_drug':drug_from_data(D, Dmax=Dmax),
+        #'actual_drug':drug_from_data(D, Dmax=Dmax),
     }
     
     ## for each drug regime, evaluate drug regime
@@ -101,51 +149,14 @@ if __name__=='__main__':
         print(regime_name)
         
         # for each subject
+        with Parallel(n_jobs=n_jobs, verbose=False) as par:
+            Yd[regime_name] = par(delayed(evaluate_one_patient)(i, D, Dname, Pobs, C, cluster, responses, simulator, outcome_model, drug_regime_func, AR_p) for i in tqdm(range(N)))
+        """
         Yd[regime_name] = []
-        A = {}
         for i in tqdm(range(N)):
-            # use simualtor to generate e
-            # use drug_regime_func to generate d
-            T = len(D[i])
-            d = [np.zeros(ND)]*(AR_p-1)
-            e = {r:list(Pobs[r][i][:AR_p]) for r in responses}
-            for t in range(AR_p, T):#tqdm()
-                # Dt = f(E1:t, D1:t-1, C)
-                d.append(drug_regime_func([e[r] for r in responses], d, C[i], Dname, i, t))
-                
-                # Et+1 = g(E1:t, D1:t, C)
-                for r in responses:
-                    if t==AR_p:
-                        A[r] = logit(np.clip(Pobs[r][i][:AR_p], 1e-6, 1-1e-6)).reshape(1,-1)
-                    Esim, A[r] = simulator[r].predict(
-                            [np.r_[np.array(d), np.zeros((1,ND))]],
-                            cluster[[i]], sid_index=[i],
-                            Astart=A[r], return_A=True,
-                            verbose=False)
-                    Esim = Esim[0][:,-1].mean(axis=0)  # averaging simulations
-                    e[r].append(Esim)
-            d.append(np.zeros(ND)+np.nan) # fill the last drug with NaN, so not counted
-                    
-            d = np.array(d)
-            e = {r:np.array(e[r]) for r in responses}
-            
-            # predict outcome
-            
-            Xsim = [e[r].mean() for r in responses]
-            #sim_name = [r+'_mean' for r in responses]
-            
-            Xdrug = np.array(d)
-            Xdrug[Xdrug<1e-6] = np.nan
-            Xdrug = np.nanmean(Xdrug, axis=0)
-            Xdrug[np.isnan(Xdrug)] = 0
-            #Dname2 = ['mean_positive_dose_'+x for x in Dname]
-    
-            # create X and y
-            X = np.r_[Xdrug, Xsim, C[i]]
-            #Xnames = Dname2 + sim_name + Cname
-            yp = outcome_model.predict(X.reshape(1,-1))[0]
-            
+            yp = evaluate_one_patient(i, D, Dname, Pobs, C, cluster, responses, simulator, outcome_model, drug_regime_func, AR_p)
             Yd[regime_name].append(yp)
+        """
             
         print(f'Y({regime_name}) = {np.mean(Yd[regime_name])}')
     import pdb;pdb.set_trace()
