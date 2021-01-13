@@ -429,7 +429,7 @@ class Simulator(BaseSimulator):
 
     #TODO def predict_incr
     
-    def predict(self, D, cluster, Ncluster=None, sid_index=None, Pstart=None, posterior_mean=False):#, MA=True):
+    def predict(self, D, cluster, Ncluster=None, sid_index=None, Astart=None, posterior_mean=False, verbose=True, return_A=False):#, MA=True):
         """
         D: drug concentration, list of arrays, with different lengths. Each element has shape (T[i],ND)
         cluster:
@@ -505,10 +505,11 @@ class Simulator(BaseSimulator):
             data_feed2[par] = var
 
         # also add AR-specific initial values
-        if Pstart is not None and 'AR' in model_type:
-            func = logit
-            data_feed2['A_start'] = func(np.clip(Pstart, 1e-6, 1-1e-6))
-            data_feed2['P_start'] = Pstart
+        if 'AR' in model_type:
+            if Astart is not None:
+                #func = logit
+                #data_feed2['A_start'] = func(np.clip(Pstart, 1e-6, 1-1e-6))
+                data_feed2['A_start'] = Astart
 
         # set model-unspecific input data
         Ts = [len(x) for x in D]
@@ -532,13 +533,13 @@ class Simulator(BaseSimulator):
         data_feed.update(data_feed2)
 
         exec(f'from stan_models.model_{model_type}_predict import predict', globals())
-        P = predict(data_feed.get('D'), data_feed.get('A_start'), data_feed.get('cluster'),
+        P, A = predict(data_feed.get('D'), data_feed.get('A_start'), data_feed.get('cluster'),
                     data_feed.get('t0'), data_feed.get('sigma0'),
                     data_feed.get('alpha0'), data_feed.get('alpha'),
                     data_feed.get('theta'), data_feed.get('sigma_err'),
                     data_feed.get('b'), data_feed.get('W'),
                     data_feed.get('AR_p'), data_feed.get('MA_q'),
-                    random_state=self.random_state)
+                    random_state=self.random_state, verbose=verbose)
         
         """
         # sample without inferring parameters
@@ -574,4 +575,7 @@ class Simulator(BaseSimulator):
                     ww2 = np.convolve(ww, self.ma_models[i].params[1:], mode='same')+self.ma_models[i].params[0]
                     P[i][j] = sigmoid(Ap[j] + ww2)
         """
-        return P
+        if return_A:
+            return P, A
+        else:
+            return P

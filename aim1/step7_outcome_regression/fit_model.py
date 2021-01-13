@@ -367,6 +367,7 @@ if __name__=='__main__':
     sids = sids[ids]
     pseudoMRNs = pseudoMRNs[ids]
     
+    #TODO remove NaN first
     binary_indicator = np.array([set(X[:,i])=={0,1} for i in range(X.shape[1])])
     
     pos_Xnames = [

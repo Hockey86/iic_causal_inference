@@ -4,6 +4,7 @@ import os
 import pickle
 import sys
 import numpy as np
+from scipy.special import logit
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from simulator import *
@@ -56,7 +57,8 @@ if __name__=='__main__':
     simulator.fit_parallel(D, Pobs, cluster, n_jobs=12)
     simulator.save_model(model_path)
     #simulator.load_model(model_path)
-    Psim = simulator.predict(D, cluster, Pstart=np.array([Pobs[i][:AR_p] for i in range(len(Pobs))]))
+    Pstart = np.array([Pobs[i][:AR_p] for i in range(len(Pobs))])
+    Psim = simulator.predict(D, cluster, Astart=logit(np.clip(Pstart, 1e-6, 1-1e-6)))
     #ii=202;plt.plot(Pobs[ii],c='k');plt.plot(Psim[ii].mean(axis=0),c='r');plt.plot(D[ii],c='b');plt.show()
     
     import pdb;pdb.set_trace()
