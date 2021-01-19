@@ -283,6 +283,7 @@ def read_data(folder, data_type, responses):
     remove_names = [
         #'SID', 'cluster',
         'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS Intubation status', 'iGCS actual scores', 'APACHE II  first 24',
+        'Worst GCS in 1st 24',
         'systolic BP', 'diastolic BP',]
     C = C[:,~np.in1d(Cname, remove_names)]
     for x in remove_names:
@@ -441,9 +442,7 @@ if __name__=='__main__':
     X = X[ids]
     sids = sids[ids]
     pseudoMRNs = pseudoMRNs[ids]
-    
-    #TODO remove NaN first
-    binary_indicator = np.array([set(X[:,i])=={0,1} for i in range(X.shape[1])])
+    binary_indicator = np.array([set(X[:,i][~np.isnan(X[:,i])])=={0,1} for i in range(X.shape[1])])
     
     pos_Xnames = [
         'Age',
@@ -470,6 +469,9 @@ if __name__=='__main__':
         'Primary systemic dx Sepsis/Shock',
         'neuro_dx_Seizures/status epilepticus',
         'prim_dx_Respiratory disorders',
+        'burden_iic_burden_smooth',
+        'burden_spike_rate',
+        'burden_iic burden x spike rate',
         ]
     neg_Xnames = [
         'iGCS-Total',

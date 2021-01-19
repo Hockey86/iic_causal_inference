@@ -1,3 +1,4 @@
+from itertools import combinations
 import sys
 import pickle
 import numpy as np
@@ -53,11 +54,14 @@ if __name__ == '__main__':
     Nbt = 0
     Ncv = 5
     model_type = 'ltr'
+    responses = ['iic_burden_smooth', 'spike_rate']
+    responses_txt = '_'.join(responses)
+    input_type = 'response'
     n_jobs = 12
     K = 7
     random_state = 2020
 
-    with open('results_%s_Nbt%d.pickle'%(model_type, Nbt), 'rb') as ff:
+    with open(f'results_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.pickle', 'rb') as ff:
         res = pickle.load(ff)
     for k in res:
         exec(f'{k} = res["{k}"]')
@@ -73,11 +77,11 @@ if __name__ == '__main__':
     else:
         print('te score:', te_scores_bt[0])
 
-    df_coef = pd.DataFrame(data={'Xname':Xnames, 'coef':coefs_bt[0]})
-    df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
-    df_coef.to_csv('coef.csv', index=False)
+    #df_coef = pd.DataFrame(data={'Xname':Xnames, 'coef':coefs_bt[0]})
+    #df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
+    #df_coef.to_csv('coef.csv', index=False)
     
-    df_pred_all = pd.read_csv('cv_predictions_%s_Nbt%d.csv'%(model_type, Nbt))
+    df_pred_all = pd.read_csv(f'cv_predictions_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.csv')
     #df_pred_all = df_pred[df_pred.bti==0].reset_index(drop=True)
     # use all bootstraps
     ys = []; yps = []; yp_probs = []; yps_int = []
@@ -90,14 +94,27 @@ if __name__ == '__main__':
     
     corrs = []
     acc0s = []; acc1s = []; acc2s = []
-    for i in tqdm(range(10000)):
-        ids = np.arange(len(ys[0]))
+    acc23s = []; acc34s = []; acc45s = []
+    concordances = []
+    for i in tqdm(range(1000)):
+        N = len(ys[0])
+        ids = np.arange(N)
         if i>0:
             np.random.shuffle(ids)
         corrs.append( spearmanr(ys[0][ids], yps[0])[0] )
         acc0s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=0) )
         acc1s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=1) )
         acc2s.append( np.mean(np.abs(ys[0][ids]-yps_int[0])<=2) )
+        acc23s.append( np.mean((ys[0][ids]>=3)==(yps_int[0]>=3)) )
+        acc34s.append( np.mean((ys[0][ids]>=4)==(yps_int[0]>=4)) )
+        acc45s.append( np.mean((ys[0][ids]>=5)==(yps_int[0]>=5)) )
+        actual_pairs = []; predicted_pairs = []
+        for p,q in combinations(range(N), 2):
+            if ys[0][ids][p]==ys[0][ids][q]:
+                continue
+            actual_pairs.append(ys[0][ids][p]<ys[0][ids][q])
+            predicted_pairs.append(yps_int[0][p]<yps_int[0][q])
+        concordances.append(np.mean( np.array(actual_pairs)==np.array(predicted_pairs) ))
     perm_mean = np.mean(corrs[1:])
     perm_std = np.std(corrs[1:])
     pval = norm.cdf(corrs[0], perm_mean, perm_std)
@@ -118,8 +135,27 @@ if __name__ == '__main__':
     pval = norm.cdf(acc2s[0], perm_mean, perm_std)
     pval = min(pval,1-pval)*2
     print(f'acc(2) = {acc2s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc2s[1:],2.5)} -- {np.percentile(acc2s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc23s[1:])
+    perm_std = np.std(acc23s[1:])
+    pval = norm.cdf(acc23s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(<=2 vs >=3) = {acc23s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc23s[1:],2.5)} -- {np.percentile(acc23s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc34s[1:])
+    perm_std = np.std(acc34s[1:])
+    pval = norm.cdf(acc34s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(<=3 vs >=4) = {acc34s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc34s[1:],2.5)} -- {np.percentile(acc34s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(acc45s[1:])
+    perm_std = np.std(acc45s[1:])
+    pval = norm.cdf(acc45s[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'acc(<=4 vs >=5) = {acc45s[0]}. Permuted = {perm_mean} (95% CI {np.percentile(acc45s[1:],2.5)} -- {np.percentile(acc45s[1:],97.5)}). P-value = {pval}')
+    perm_mean = np.mean(concordances[1:])
+    perm_std = np.std(concordances[1:])
+    pval = norm.cdf(concordances[0], perm_mean, perm_std)
+    pval = min(pval,1-pval)*2
+    print(f'concordances = {concordances[0]}. Permuted = {perm_mean} (95% CI {np.percentile(concordances[1:],2.5)} -- {np.percentile(concordances[1:],97.5)}). P-value = {pval}')
 
-    import pdb;pdb.set_trace()
     figsize = (8,6)
 
     # confusion matrix plot
