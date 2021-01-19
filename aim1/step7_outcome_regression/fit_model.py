@@ -234,28 +234,43 @@ def read_data(folder, data_type, responses):
     """
     res = {}
     sids = set()  # common_sids
-    for response in responses:
-        with open(os.path.join(folder, f'data_to_fit_{data_type}_{response}.pickle'), 'rb') as f:
-            res[response] = pickle.load(f)
+    for r in responses:
+        with open(os.path.join(folder, f'data_to_fit_{data_type}_{r}.pickle'), 'rb') as f:
+            res[r] = pickle.load(f)
         if len(sids)==0:
-            sids.update(res[response]['sids'])
+            sids.update(res[r]['sids'])
         else:
-            sids &= set(res[response]['sids'])
+            sids &= set(res[r]['sids'])
     sids = np.array(sorted(sids, key=lambda x:int(x[len('sid'):])))
     
     Pobs = {}
+    window_start_ids = {}
     data = {}
     for k in ['W', 'Dname', 'Cname', 'Yname']:
         data[k] = res[responses[0]][k]
-    for ri, response in enumerate(responses):
-        ids = [res[response]['sids'].index(sid) for sid in sids]
-        for k in res[response]:
-            if ri==0 and k in ['window_start_ids', 'D']:
-                data[k] = [res[response][k][x] for x in ids]
+    for ri, r in enumerate(responses):
+        ids = [res[r]['sids'].index(sid) for sid in sids]
+        for k in res[r]:
+            if ri==0 and k in ['D',]:#'window_start_ids'
+                data[k] = [res[r][k][x] for x in ids]
             elif ri==0 and k in ['cluster', 'pseudoMRNs', 'C', 'Y']:
-                data[k] = np.array(res[response][k])[ids]
+                data[k] = np.array(res[r][k])[ids]
             elif k=='Pobs':
-                Pobs[response] = [res[response][k][x] for x in ids]
+                Pobs[r] = [res[r][k][x] for x in ids]
+            elif k=='window_start_ids':
+                window_start_ids[r] = [res[r][k][x] for x in ids]
+    
+    # make D, Pobs have same length from different responses according to window_start_ids
+    for i, sid in enumerate(sids):
+        common_time_steps = sorted(set.intersection(*map(set, [window_start_ids[r][i] for r in responses])))
+        for ri, r in enumerate(responses):
+            if len(common_time_steps)==len(window_start_ids[r][i]):
+                continue
+            ids = np.in1d(window_start_ids[r][i], common_time_steps)
+            window_start_ids[r][i] = window_start_ids[r][i][ids]
+            Pobs[r][i] = Pobs[r][i][ids]
+            if ri==0:
+                data['D'][i] = data['D'][i][ids]
     
     # MAP = 1/3 SBP + 2/3 DBP
     # The sixth report of the Joint National Committee on prevention, detection, evaluation, and treatment of high blood pressure. [Arch Intern Med. 1997]
@@ -277,29 +292,10 @@ def read_data(folder, data_type, responses):
            data['D'], data['Dname'],\
            C, Cname,\
            data['Y'], data['Yname'],\
-           data['window_start_ids'], data['cluster'], data['W']
+           window_start_ids[responses[0]], data['cluster'], data['W']
 
-if __name__=='__main__':
 
-    input_type = str(sys.argv[1])#simulator_param or response
-    assert input_type in ['simulator_param', 'response']
-    
-    #data_type = 'humanIIC'
-    data_type = 'CNNIIC'
-    
-    responses = ['iic_burden_smooth', 'spike_rate']
-    responses_txt = '_'.join(responses)
-    
-    Nbt = 0
-    Ncv = 5
-    model_type = 'ltr'
-    n_jobs = 6
-    random_state = 2020
-    
-    model = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
-    maxiter = 1000
-    
-    sids, pseudoMRNs, Pobs, D, Dname, C, Cname, Y, Yname, window_start_ids, cluster, W = read_data('..', data_type, responses)
+def generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W, sids=None, simulator_type=None, data_type=None, same_length_vectorizable=False):
     
     if input_type=='simulator_param':
         all_sim_names = ['alpha0', 'alpha[1]', 'alpha[2]', 'theta[1]',
@@ -314,23 +310,119 @@ if __name__=='__main__':
            ]
         Xsim = []
         sim_name = []
-        for response in responses:
-            df_sim = pd.read_csv(f'../step6_simulator/results_{response}/params_mean_{data_type}_{response}_{model}_iter{maxiter}.csv')
+        for r in responses:
+            df_sim = pd.read_csv(f'../step6_simulator/results_{r}/params_mean_{data_type}_{r}_{simulator_type}_iter1000.csv')
             ids = [np.where(df_sim==sid)[0][0] for sid in sids]
             Xsim.append( df_sim[all_sim_names].iloc[ids].values )
-            sim_name.extend([x+'_'+response for x in all_sim_names])
+            sim_name.extend([x+'_'+r for x in all_sim_names])
         Xsim = np.concatenate(Xsim, axis=1)
         
     elif input_type=='response':
-        Xsim = np.zeros((len(sids), len(responses)))
-        sim_name = [x+'_mean' for x in responses]
-        for ri, response in enumerate(responses):
-            for i in range(len(Pobs[response])):
-                meanP = np.nanmean(Pobs[response][i])
-                if np.isnan(meanP):
-                    meanP = 0
-                Xsim[i,ri] = meanP
+        use_interaction = (responses == ['iic_burden_smooth', 'spike_rate']) or (responses == ['spike_rate', 'iic_burden_smooth'])
+        Nwindow_1h = int(round(1./(W*2./3600)))
+        
+        sim_name = []
+        responses_ = copy.deepcopy(responses)
+        Pobs_ = copy.deepcopy(Pobs)
+        if use_interaction:
+            responses_.append('iic burden x spike rate')
+            if same_length_vectorizable:
+                Pobs_[responses_[-1]] = Pobs['iic_burden_smooth']*Pobs['spike_rate']
+            else:
+                Pobs_[responses_[-1]] = [Pobs['iic_burden_smooth'][i]*Pobs['spike_rate'][i] for i in range(len(D))]
+        for r in responses_:
+            sim_name.extend([f'burden_{r}'])#f'mean_{r}',
+            
+        if same_length_vectorizable:
+            Xsim = []
+            for r in responses_:
+                meanP = np.nanmean(Pobs_[r], axis=1)
+                meanP[np.isnan(meanP)] = 0
+                
+                burdenP = np.array_split(Pobs_[r], Pobs_[r].shape[1]//Nwindow_1h, axis=1)
+                burdenP = np.nanmax([np.nanmean(x, axis=1) for x in burdenP], axis=0)
+                burdenP[np.isnan(burdenP)] = 0
+                
+                Xsim.append(np.c_[burdenP]) #, meanP
+            Xsim = np.concatenate(Xsim, axis=1)
+                
+        else:
+            Xsim = []
+            for i in range(len(D)):
+                Pi = {r:Pobs_[r][i] for r in responses_}
+                    
+                Xsim.append([])
+                for r in responses_:
+                    meanP = np.nanmean(Pi[r])
+                    if np.isnan(meanP):
+                        meanP = 0
+                        
+                    # Payne, E.T., Zhao, X.Y., Frndova, H., McBain, K., Sharma, R., Hutchison, J.S. and Hahn, C.D., 2014. Seizure burden is independently associated with short term outcome in critically ill children. Brain, 137(5), pp.1429-1438.
+                    burdenP = np.array_split(Pi[r], len(Pi[r])//Nwindow_1h)
+                    burdenP = np.nanmax([np.nanmean(x) for x in burdenP])
+                    if np.isnan(burdenP):
+                        burdenP = 0
+                    Xsim[-1].extend( [burdenP] )#meanP, 
+            Xsim = np.array(Xsim)
+        
+    #Dname = ['max_dose_'+x for x in Dname] + \
+    #        ['mean_dose_'+x for x in Dname] + \
+    #Dname = ['mean_positive_dose_'+x for x in Dname]
+    Dname = ['burden_'+x for x in Dname]
+    if same_length_vectorizable:
+        #D_ = np.array(D)
+        #D_[D_<1e-6] = np.nan
+        #pos_drug_mean = np.nanmean(D_, axis=1)
+        #pos_drug_mean[np.isnan(pos_drug_mean)] = 0
+        
+        burdenD = np.array_split(D, D.shape[1]//Nwindow_1h, axis=1)
+        burdenD = np.nanmax([np.nanmean(x, axis=1) for x in burdenD], axis=0)
+        D2 = np.concatenate([burdenD], axis=1)#, pos_drug_mean
+    else:
+        D2 = []
+        for i in range(len(D)):
+            Di = np.array(D[i])
+            #Di[Di<1e-6] = np.nan
+            #pos_drug_mean = np.nanmean(Di, axis=0)
+            #pos_drug_mean[np.isnan(pos_drug_mean)] = 0
+            
+            burdenD = np.array_split(Di, len(Di)//Nwindow_1h, axis=0)
+            burdenD = np.nanmax([np.nanmean(x, axis=0) for x in burdenD], axis=0)
+            D2.append(np.r_[
+                #np.percentile(D[i], 99, axis=0),
+                #np.mean(D[i], axis=0),
+                #pos_drug_mean,
+                burdenD,
+                ])
+        D2 = np.array(D2)
+    
+    # create X
+    X = np.c_[D2/Dmax, Xsim]
+    Xnames = Dname + sim_name
+    
+    return X, Xnames
+    
+    
+if __name__=='__main__':
 
+    input_type = str(sys.argv[1])#simulator_param or response
+    assert input_type in ['simulator_param', 'response']
+    
+    #data_type = 'humanIIC'
+    data_type = 'CNNIIC'
+    
+    responses = ['iic_burden_smooth', 'spike_rate']
+    responses_txt = '_'.join(responses)
+    
+    Nbt = 0
+    Ncv = 5
+    model_type = 'ltr'
+    simulator_type = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
+    n_jobs = 6
+    random_state = 2020
+    
+    sids, pseudoMRNs, Pobs, D, Dname, C, Cname, y, Yname, window_start_ids, cluster, W = read_data('..', data_type, responses)
+    
     # standardize drugs
     Dmax = []
     for di in range(D[0].shape[-1]):
@@ -338,28 +430,11 @@ if __name__=='__main__':
         dd[dd==0] = np.nan
         Dmax.append(np.nanpercentile(dd,95))
     Dmax = np.array(Dmax)
-    for i in range(len(D)):
-        D[i] = D[i]/Dmax
-        
-    D2 = []
-    for i in range(len(D)):
-        Di = np.array(D[i])
-        Di[Di<1e-6] = np.nan
-        pos_drug_mean = np.nanmean(Di, axis=0)
-        pos_drug_mean[np.isnan(pos_drug_mean)] = 0
-        D2.append(np.r_[
-            #np.percentile(D[i], 99, axis=0),
-            #np.mean(D[i], axis=0),
-            pos_drug_mean,
-            ])
-    #Dname = ['max_dose_'+x for x in Dname] + \
-    #        ['mean_dose_'+x for x in Dname] + \
-    Dname = ['mean_positive_dose_'+x for x in Dname]
-    
-    # create X and y
-    y = Y
-    X = np.c_[np.array(D2), Xsim, C]
-    Xnames = Dname + sim_name + Cname
+    #for i in range(len(D)):
+    #    D[i] = D[i]/Dmax
+    X, Xnames = generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W)
+    X = np.c_[X, C]
+    Xnames.extend(Cname)
     
     ids = ~np.isnan(y)
     y = y[ids].astype(int)
@@ -398,7 +473,7 @@ if __name__=='__main__':
         ]
     neg_Xnames = [
         'iGCS-Total',
-        'Worst GCS in 1st 24',
+        #'Worst GCS in 1st 24',
         ]
     bounds = []
     for xn in Xnames:

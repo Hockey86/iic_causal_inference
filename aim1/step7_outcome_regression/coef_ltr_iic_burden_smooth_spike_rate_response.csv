@@ -1,39 +1,40 @@
 name,coef
-Midline shift with any reason ( Document Date),1.4158800189559972
-mean_positive_dose_pentobarbital,1.3542464926512785
-mean_positive_dose_midazolam,1.240437570380732
-Age,0.9109527863180682
-prim_dx_Respiratory disorders,0.8802640445396815
-hydrocephalus  (either on admission or during hospital course)   QPID,0.6345797868880461
-"premorbid MRS before admission  (modified ranking scale),before admission",0.5497105358244404
-Primary systemic dx Sepsis/Shock,0.4978561324318784
-spike_rate_mean,0.2529806529795359
-Hx COPD/ Asthma,0.18073194861585984
-Hx DM,0.15065448878369328
-Hx cancer (other than CNS cancer),0.1235244960455837
-"Hx other substance abuse, any time in their life",0.10948389562777634
-iic_burden_smooth_mean,0.10061015003142998
-Hx CAD/MI,0.09420007572146409
-Hx CHF,0.08947037088492782
-mean arterial pressure,0.07595410811260853
-Hx CKD,0.02206482615246058
-mean_positive_dose_levetiracetam,0.015366182115404489
-iMV  (initial (on admission) mechanical ventilation),0.0
+burden_pentobarbital,1.991376559898779
+Midline shift with any reason ( Document Date),1.4208003958228088
+burden_midazolam,0.919005293647211
+Age,0.8900502165632627
+prim_dx_Respiratory disorders,0.8754585353508044
+burden_iic burden x spike rate,0.6968774533419412
+hydrocephalus  (either on admission or during hospital course)   QPID,0.5834742240007667
+"premorbid MRS before admission  (modified ranking scale),before admission",0.5742221745933934
+Primary systemic dx Sepsis/Shock,0.47965966796327153
+Hx COPD/ Asthma,0.1653985765358312
+Hx DM,0.1245577413472372
+Hx cancer (other than CNS cancer),0.11770746875595103
+mean arterial pressure,0.09513429938685104
+Hx CAD/MI,0.08319106754693344
+"Hx other substance abuse, any time in their life",0.08014286740030128
+Hx CHF,0.06088131358010319
+Hx CKD,0.0437763914649731
+Hx brain surgery,0.0
+Hx Sz /epilepsy,0.0
+neuro_dx_Seizures/status epilepticus,0.0
+Hx HTN,0.0
 Hx of HLD,0.0
 Hx tobacco (including ex-smokers),0.0
 Hx ETOH abuse any time in their life (just when in the hx is mentioned),0.0
-Hx Sz /epilepsy,0.0
-Hx HTN,0.0
-Hx CNS cancer,0.0
 Hx CVA (including TIA),0.0
-Hx brain surgery,0.0
+Hx CNS cancer,0.0
+iMV  (initial (on admission) mechanical ventilation),0.0
 "SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)",0.0
-neuro_dx_Seizures/status epilepticus,0.0
-mean_positive_dose_lacosamide,-0.024217685927801835
-mean_positive_dose_propofol,-0.04158430629098963
-marrital,-0.043767914539543554
-Gender,-0.0695853339038012
-mean_positive_dose_phenobarbital,-0.07111074567176717
-mean_positive_dose_valproate,-0.07396989367588559
-iGCS-Total,-0.13146061615240096
-Worst GCS in 1st 24,-0.46453696039279785
+burden_iic_burden_smooth,-0.0010954677231777249
+marrital,-0.0175883264522153
+Gender,-0.022793021819440484
+burden_levetiracetam,-0.03116810553806072
+burden_propofol,-0.03382643980374657
+burden_phenobarbital,-0.07764104729264237
+burden_valproate,-0.102544057210887
+burden_lacosamide,-0.13619765630514347
+iGCS-Total,-0.16758627537570048
+burden_spike_rate,-0.31697630867224175
+Worst GCS in 1st 24,-0.3956109668455197
