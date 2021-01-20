@@ -111,7 +111,7 @@ if __name__=='__main__':
     MA_q = 6
     max_iter = 1000
     Nbt = 0
-    n_jobs = 12
+    n_jobs = 14
     random_state = 2020
     
     responses_txt = '_'.join(responses)
@@ -141,9 +141,16 @@ if __name__=='__main__':
     
     ## define drug regimes to evaluate
     drug_regimes = {
-        'always_zero':drug_from_constant(0),
-        'always_propofol_10':drug_from_constant(10, drug='propofol'),
-        'actual_drug':drug_from_data(D),
+        #'always_zero':drug_from_constant(0),
+        #'always_propofol_1':drug_from_constant(1, drug='propofol'),
+        #'always_propofol_2':drug_from_constant(2, drug='propofol'),
+        #'always_propofol_10':drug_from_constant(10, drug='propofol'),
+        #'always_propofol_20':drug_from_constant(20, drug='propofol'),
+        #'always_propofol_50':drug_from_constant(50, drug='propofol'),
+        #'actual_drug':drug_from_data(D),
+        'actual_drugx2':drug_from_data([d*2 for d in D]),
+        'actual_drugx5':drug_from_data([d*5 for d in D]),
+        'actual_drugx10':drug_from_data([d*10 for d in D]),
     }
     
     ## for each drug regime, evaluate drug regime
@@ -161,7 +168,7 @@ if __name__=='__main__':
         Yd[regime_name] = np.array(res)
         print(f'Y({regime_name}) = {np.mean(Yd[regime_name])}')
 
-        with open('res_evaluate_Yd.pickle', 'wb') as ff:
+        with open('res_evaluate_Yd2.pickle', 'wb') as ff:
             pickle.dump(Yd, ff)
     import pdb;pdb.set_trace()
         

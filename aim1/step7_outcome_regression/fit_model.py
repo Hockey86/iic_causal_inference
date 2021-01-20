@@ -373,26 +373,26 @@ def generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W, sids=None
     if same_length_vectorizable:
         #D_ = np.array(D)
         #D_[D_<1e-6] = np.nan
-        #pos_drug_mean = np.nanmean(D_, axis=1)
-        #pos_drug_mean[np.isnan(pos_drug_mean)] = 0
+        #pos_Dmean = np.nanmean(D_, axis=1)
+        #pos_Dmean[np.isnan(pos_Dmean)] = 0
         
         burdenD = np.array_split(D, D.shape[1]//Nwindow_1h, axis=1)
         burdenD = np.nanmax([np.nanmean(x, axis=1) for x in burdenD], axis=0)
-        D2 = np.concatenate([burdenD], axis=1)#, pos_drug_mean
+        D2 = np.concatenate([burdenD], axis=1)#, pos_Dmean
     else:
         D2 = []
         for i in range(len(D)):
             Di = np.array(D[i])
             #Di[Di<1e-6] = np.nan
-            #pos_drug_mean = np.nanmean(Di, axis=0)
-            #pos_drug_mean[np.isnan(pos_drug_mean)] = 0
+            #pos_Dmean = np.nanmean(Di, axis=0)
+            #pos_Dmean[np.isnan(pos_Dmean)] = 0
             
             burdenD = np.array_split(Di, len(Di)//Nwindow_1h, axis=0)
             burdenD = np.nanmax([np.nanmean(x, axis=0) for x in burdenD], axis=0)
             D2.append(np.r_[
                 #np.percentile(D[i], 99, axis=0),
                 #np.mean(D[i], axis=0),
-                #pos_drug_mean,
+                #pos_Dmean,
                 burdenD,
                 ])
         D2 = np.array(D2)
