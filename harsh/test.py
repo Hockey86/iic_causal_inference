@@ -16,6 +16,7 @@ from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
+import pandas as pd
 
 import functools
 import itertools
@@ -49,9 +50,45 @@ b = np.array([0.25,0.1])
 
 k = np.array([0.115525,0.462098])
 
-D = np.random.binomial(1, 0.05,(48,2)) 
+D = np.random.binomial(1, 0.05,(48,3)) 
 
+data = pd.read_csv('/Users/harshparikh/Documents/GitHub/iic_causal_inference/aim1/step6_simulator/results_iic_burden_smooth/params_mean_CNNIIC_iic_burden_smooth_cauchy_expit_lognormal_drugoutside_ARMA2,6_iter1000.csv',index_col=0)
+data = data.fillna(-999)
+data = data.drop(columns=['Gender', 'Age',
+       'marrital', 'APACHE II  first 24', 'Hx CVA (including TIA)', 'Hx HTN',
+       'Hx Sz /epilepsy', 'Hx brain surgery', 'Hx CKD', 'Hx CAD/MI', 'Hx CHF',
+       'Hx DM', 'Hx of HLD', 'Hx tobacco (including ex-smokers)',
+       'Hx ETOH abuse any time in their life (just when in the hx is mentioned)',
+       'Hx other substance abuse, any time in their life',
+       'Hx cancer (other than CNS cancer)', 'Hx CNS cancer', 'Hx COPD/ Asthma',
+       'premorbid MRS before admission  (modified ranking scale),before admission',
+       'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)',
+       'hydrocephalus  (either on admission or during hospital course)   QPID',
+       'iMV  (initial (on admission) mechanical ventilation)', 'systolic BP',
+       'diastolic BP', 'Midline shift with any reason ( Document Date)',
+       'Primary systemic dx Sepsis/Shock', 'iGCS-Total', 'iGCS = T?', 'iGCS-E',
+       'iGCS-V', 'iGCS-M', 'Worst GCS in 1st 24',
+       'Worst GCS Intubation status', 'iGCS actual scores',
+       'neuro_dx_Seizures/status epilepticus',
+       'prim_dx_Respiratory disorders'])
+print(data.columns)
+a0 = data[['alpha0']].to_numpy()
+a = data[['alpha[1]', 'alpha[2]']].to_numpy()
+b0 = a0
+b = data[['b[levetiracetam]','b[propofol]','b[midazolam]']].fillna(0).to_numpy()
+k =  np.array([0.115525,0.462098,0.462098])
 
+params  = ( a0[1,0], a[1,:], b0[1,0], b[1,:], k, lag, T, W)
+
+a0 = 0.5
+a = np.array([0.5, 0.5])
+
+b0 = 0.2
+b = np.array([0.25,0.1])
+
+k = np.array([0.115525,0.462098])
+
+D = np.random.binomial(1, 0.05,(48,3)) 
 params  = ( a0, a, b0, b, k, lag, T, W)
 
 # p, IIC, Dc = fake_simulator( params, E_init, D )
@@ -76,7 +113,7 @@ for i in range(1,1+sim.Dc.shape[1]):
     ax[i].set_title('Drug-Concentration-%d'%(i))
 '''
 estimator = pl.Estimator(sim.num_actions,method='RF')
-episode_rewards, policy = pl.q_learning(sim, estimator, episode_length=1000, num_episodes=1000, discount_factor=1.0, epsilon=0.2, epsilon_decay=0.99, alpha=0.1)
+episode_rewards, policy = pl.q_learning(sim, estimator, episode_length=100, num_episodes=1, discount_factor=1.0, epsilon=0.2, epsilon_decay=0.99, alpha=0.1)
 
 fig =  plt.figure()
 plt.plot(episode_rewards)

@@ -38,7 +38,7 @@ def fake_simulator( params, E_init, D ):
     return p, E/W, Dc
 
 np.random.seed(1080)
-
+'''
 W = 1800
 T = 48
 lag = 2
@@ -70,3 +70,11 @@ for i in range(1,1+Dc.shape[1]):
     y = Dc[:,i-1]
     ax[i].imshow(y[np.newaxis,:], cmap="plasma", aspect="auto")
     ax[i].set_title(drugs[i-1])
+'''    
+    
+    
+    
+    
+    
+    
+    

@@ -19,7 +19,7 @@ import itertools
 import sys
 import sklearn.pipeline
 import sklearn.preprocessing
-import torch
+# import torch
 
 from sklearn.linear_model import SGDRegressor
 from sklearn.kernel_approximation import RBFSampler
