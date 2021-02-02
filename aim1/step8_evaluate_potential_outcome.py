@@ -94,7 +94,7 @@ def evaluate_one_patient(i, D, Dname, Dmax, Pobs, C, cluster, responses, simulat
 
     # create X and y
     #X = np.c_[Xdrug, Xsim, XC]
-    yp = outcome_model.predict(X)
+    yp = outcome_model.predict_proba(X)
     
     return yp
     
@@ -106,7 +106,7 @@ if __name__=='__main__':
     data_type = 'CNNIIC'
     responses = ['iic_burden_smooth', 'spike_rate']
     simulator_model_type = 'cauchy_expit_lognormal_drugoutside_ARMA'
-    outcome_model_type = 'ltr'
+    outcome_model_type = str(sys.argv[1])
     AR_p = 2
     MA_q = 6
     max_iter = 1000
@@ -141,15 +141,19 @@ if __name__=='__main__':
     
     ## define drug regimes to evaluate
     drug_regimes = {
-        #'always_zero':drug_from_constant(0),
-        #'always_propofol_1':drug_from_constant(1, drug='propofol'),
-        #'always_propofol_2':drug_from_constant(2, drug='propofol'),
-        #'always_propofol_10':drug_from_constant(10, drug='propofol'),
-        #'always_propofol_20':drug_from_constant(20, drug='propofol'),
-        #'always_propofol_50':drug_from_constant(50, drug='propofol'),
-        #'actual_drug':drug_from_data(D),
+        'always_zero':drug_from_constant(0),
+        'always_propofol_1':drug_from_constant(1, drug='propofol'),
+        'always_propofol_5':drug_from_constant(5, drug='propofol'),
+        'always_propofol_10':drug_from_constant(10, drug='propofol'),
+        'always_propofol_20':drug_from_constant(20, drug='propofol'),
+        'always_propofol_30':drug_from_constant(30, drug='propofol'),
+        'always_propofol_40':drug_from_constant(40, drug='propofol'),
+        'always_propofol_50':drug_from_constant(50, drug='propofol'),
+        'actual_drug':drug_from_data(D),
         'actual_drugx2':drug_from_data([d*2 for d in D]),
-        'actual_drugx5':drug_from_data([d*5 for d in D]),
+        'actual_drugx4':drug_from_data([d*4 for d in D]),
+        'actual_drugx6':drug_from_data([d*6 for d in D]),
+        'actual_drugx8':drug_from_data([d*8 for d in D]),
         'actual_drugx10':drug_from_data([d*10 for d in D]),
     }
     
@@ -165,10 +169,10 @@ if __name__=='__main__':
                     i, D, Dname, Dmax, Pobs, C, cluster,
                     responses, simulator, outcome_model,
                     drug_regime_func, AR_p, W) for i in tqdm(range(N)))
-        Yd[regime_name] = np.array(res)
-        print(f'Y({regime_name}) = {np.mean(Yd[regime_name])}')
+        Yd[regime_name] = np.array(res).mean(axis=1)
+        print(f'Y({regime_name}) = {np.mean(Yd[regime_name][:,4:].sum(axis=1))}')
 
-        with open('res_evaluate_Yd2.pickle', 'wb') as ff:
+        with open('res_evaluate_Yd.pickle', 'wb') as ff:
             pickle.dump(Yd, ff)
     import pdb;pdb.set_trace()
         

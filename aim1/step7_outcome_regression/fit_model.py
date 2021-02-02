@@ -3,15 +3,16 @@
 import copy
 import sys
 from collections import Counter, defaultdict
+from itertools import combinations
 import os
 import pickle
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from sklearn.metrics import make_scorer
+from sklearn.metrics import make_scorer, roc_auc_score
 from tqdm import tqdm
-from myclasses import MyCalibrator, MyLogisticRegression, LTRPairwise
+from myclasses import *
 
 
 def get_sample_weights(y, class_weight='balanced', prior_count=0):
@@ -23,8 +24,17 @@ def get_sample_weights(y, class_weight='balanced', prior_count=0):
     return sw
 
 
+def concordance_index(y, yp):
+    res = []
+    for i,j in combinations(range(len(y)),2):
+        if y[i]==y[j] or yp[i]==yp[j]:
+            continue
+        res.append((y[i]>y[j])==(yp[i]>yp[j]))
+    return np.mean(res)
+
+
 def get_perf(model_type, y, yp_int, yp, yp_prob):
-    if model_type=='ltr':
+    if model_type in ['ltr', 'knn']:
         perf = pd.Series(
             data=[
                 spearmanr(y, yp).correlation,
@@ -32,6 +42,13 @@ def get_perf(model_type, y, yp_int, yp, yp_prob):
                 np.mean(np.abs(y-yp_int)<=1),
                 np.mean(np.abs(y-yp_int)<=2),
                 np.mean(np.abs(y-yp_int)<=3),
+                np.mean((y>=3).astype(int)==(yp_int>=3).astype(int)),
+                np.mean((y>=4).astype(int)==(yp_int>=4).astype(int)),
+                np.mean((y>=5).astype(int)==(yp_int>=5).astype(int)),
+                roc_auc_score((y>=3).astype(int), yp_prob[:,3:].sum(axis=1)),
+                roc_auc_score((y>=4).astype(int), yp_prob[:,4:].sum(axis=1)),
+                roc_auc_score((y>=5).astype(int), yp_prob[:,5:].sum(axis=1)),
+                concordance_index(y, yp_int),
             ],
             index=[
                 'Spearman\'s R',
@@ -39,6 +56,13 @@ def get_perf(model_type, y, yp_int, yp, yp_prob):
                 'accuracy(1)',
                 'accuracy(2)',
                 'accuracy(3)',
+                'accuracy(<=2,>=3)',
+                'accuracy(<=3,>=4)',
+                'accuracy(<=4,>=5)',
+                'AUC(<=2,>=3)',
+                'AUC(<=3,>=4)',
+                'AUC(<=4,>=5)',
+                'concordance index',
             ])
     else:
         raise ValueError('Unknown model_type:', model_type)
@@ -49,7 +73,7 @@ def get_coef(model_type, model):
     if model_type=='ltr':
         coef = model.base_estimator.estimator.coef_.flatten()
     else:
-        raise ValueError('Unknown model_type:', model_type)
+        coef = None
     return coef
     
     
@@ -128,9 +152,9 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
             continue
             
         if model_type=='ltr':
-            model_params = {'estimator__C':np.logspace(-3,1,5),
-                            'estimator__l1_ratio':np.arange(0.5,1,0.1),
-                            'impute_KNN_K':[5,10,50],
+            model_params = {'estimator__C':np.logspace(-1,1,3),
+                            'estimator__l1_ratio':np.arange(0.5,0.8,0.1),#1
+                            'impute_KNN_K':[5,10],#,50],
                            }
             metric = make_scorer(lambda y,yp:spearmanr(y,yp).correlation)
             model = LTRPairwise(MyLogisticRegression(
@@ -141,6 +165,13 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                             classes, class_weight='balanced', min_level_diff=2,
                             binary_indicator=binary_indicator,
                             verbose=False)
+        elif model_type=='knn':
+            model_params = {'n_neighbors':[10,20,50],
+                            'sigma':[0.5,0.6,0.7],
+                            'impute_KNN_K':[5,10,50],
+                            }
+            metric = make_scorer(lambda y,yp:spearmanr(y,yp).correlation)
+            model = KNN(relative=False)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -208,6 +239,8 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                             classes, class_weight='balanced', min_level_diff=2,
                             binary_indicator=binary_indicator,
                             verbose=False)
+        elif model_type=='knn':
+            model = KNN(relative=False)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -235,7 +268,7 @@ def read_data(folder, data_type, responses):
     res = {}
     sids = set()  # common_sids
     for r in responses:
-        with open(os.path.join(folder, f'data_to_fit_{data_type}_{r}.pickle'), 'rb') as f:
+        with open(os.path.join(folder, f'data_to_fit_{data_type}_{r} 3.pickle'), 'rb') as f:
             res[r] = pickle.load(f)
         if len(sids)==0:
             sids.update(res[r]['sids'])
@@ -401,6 +434,9 @@ def generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W, sids=None
     X = np.c_[D2/Dmax, Xsim]
     Xnames = Dname + sim_name
     
+    #X = np.c_[X, X**2]
+    #Xnames = Xnames + [x+'^2' for x in Xnames]
+    
     return X, Xnames
     
     
@@ -417,9 +453,9 @@ if __name__=='__main__':
     
     Nbt = 0
     Ncv = 5
-    model_type = 'ltr'
+    model_type = str(sys.argv[2])
     simulator_type = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
-    n_jobs = 6
+    n_jobs = 12
     random_state = 2020
     
     sids, pseudoMRNs, Pobs, D, Dname, C, Cname, y, Yname, window_start_ids, cluster, W = read_data('..', data_type, responses)
@@ -469,9 +505,9 @@ if __name__=='__main__':
         'Primary systemic dx Sepsis/Shock',
         'neuro_dx_Seizures/status epilepticus',
         'prim_dx_Respiratory disorders',
-        'burden_iic_burden_smooth',
-        'burden_spike_rate',
-        'burden_iic burden x spike rate',
+        #'burden_iic_burden_smooth',
+        #'burden_spike_rate',
+        #'burden_iic burden x spike rate',
         ]
     neg_Xnames = [
         'iGCS-Total',
@@ -545,10 +581,11 @@ if __name__=='__main__':
                 np.percentile([x[idx] for x in te_scores_bt[1:]], 2.5),
                 np.percentile([x[idx] for x in te_scores_bt[1:]], 97.5),))
     
-    df_coef = pd.DataFrame(data={'coef':coefs_bt[0], 'name':Xnames})
-    df_coef = df_coef[['name', 'coef']]
-    df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
-    df_coef.to_csv(f'coef_{model_type}_{responses_txt}_{input_type}.csv', index=False)
+    if model_type=='ltr':
+        df_coef = pd.DataFrame(data={'coef':coefs_bt[0], 'name':Xnames})
+        df_coef = df_coef[['name', 'coef']]
+        df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
+        df_coef.to_csv(f'coef_{model_type}_{responses_txt}_{input_type}.csv', index=False)
     
     y_yps = []
     for bti, y_yp in enumerate(y_yp_bt):
@@ -561,14 +598,15 @@ if __name__=='__main__':
     y_yps = pd.concat(y_yps, axis=0)
     y_yps.to_csv(f'cv_predictions_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.csv', index=False)
     
+    res = {'tr_scores_bt':tr_scores_bt,
+             'te_scores_bt':te_scores_bt,
+             'y_yp_bt':y_yp_bt,
+             'params':params,
+             'model':final_model,
+             'Xnames':Xnames,
+             'Dmax':Dmax,}
+    if model_type=='ltr':
+        res['coefs_bt'] = coefs_bt
     with open(f'results_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.pickle', 'wb') as ff:
-        pickle.dump({'tr_scores_bt':tr_scores_bt,
-                     'te_scores_bt':te_scores_bt,
-                     'coefs_bt':coefs_bt,
-                     'y_yp_bt':y_yp_bt,
-                     'params':params,
-                     'model':final_model,
-                     'Xnames':Xnames,
-                     'Dmax':Dmax,
-                    }, ff)
-                    
+        pickle.dump(res, ff)
+
