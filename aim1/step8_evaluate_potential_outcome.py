@@ -172,7 +172,7 @@ if __name__=='__main__':
         Yd[regime_name] = np.array(res).mean(axis=1)
         print(f'Y({regime_name}) = {np.mean(Yd[regime_name][:,4:].sum(axis=1))}')
 
-        with open('res_evaluate_Yd.pickle', 'wb') as ff:
+        with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}.pickle', 'wb') as ff:
             pickle.dump(Yd, ff)
     import pdb;pdb.set_trace()
         
