@@ -38,7 +38,7 @@ if __name__=='__main__':
     """
     #output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'
     output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data'
-   
+    
     master_list = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019_HaoqiCorrected.csv')
     master_list['The start day of first EEG'] = pd.to_datetime(master_list['The start day of first EEG'])
     
@@ -58,7 +58,8 @@ if __name__=='__main__':
     # get label
     #human_label_dir = '/home/sunhaoqi/Desktop/IIC_human_labels'
     #human_label_paths = glob.glob(os.path.join(human_label_dir, '*.csv'))
-    label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/data_score/cnn_label_24h_2000pt'
+    #label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/data_score/cnn_label_24h_2000pt'
+    label_dir = '/data/IIC-Causality/data_score/cnn_label_24h_2000pt'
     label_paths = os.listdir(label_dir)
     
     # body weight
@@ -75,14 +76,16 @@ if __name__=='__main__':
     sids = []
     notfound_sids = []
     mrns = []
+    master_list_good_ids = []
     group1_paths = os.listdir('/media/mad3/Projects/SAGE_Data/Group1')
     group2_paths = os.listdir('/media/mad3/Projects/SAGE_Data/Group2')
+    group3_paths = os.listdir('/media/mad3/Projects/SAGE_Data/Group3')
     for i in tqdm(range(len(master_list))):
         sid2 = 'sid%04d'%int(master_list.Index.iloc[i][3:])
         #sid_path = os.path.join('/media/mad3/Projects/SAGE_Data', sid2, 'Data')
         #eeg_file_names = os.listdir(sid_path)
         sid_path = None
-        for group_name in ['Group1', 'Group2']:
+        for group_name in ['Group1', 'Group2', 'Group3']:
             group_paths = eval(group_name.lower()+'_paths')
             group_ids = np.where([re.search(sid2+'[a-z]*', x, re.IGNORECASE) is not None for x in group_paths])[0]
             if len(group_ids)==1:
@@ -123,11 +126,17 @@ if __name__=='__main__':
         sids.append(master_list.Index.iloc[i])
         mrns.append(master_list.MRN.iloc[i])
         eeg_start_times.append(eeg_start_time)
+        master_list_good_ids.append(i)
+        
+    master_list = master_list.iloc[master_list_good_ids].reset_index(drop=True)
     bodyweights = np.array(bodyweights)
     bodyweights[bodyweights<=20] = np.nan
     ages = np.array(ages)
     genders = np.array(genders)
     print(f'{len(notfound_sids)} subjects are not found: {notfound_sids}')
+    """
+    17 subjects are not found: ['sid270', 'sid296', 'sid532', 'sid1064', 'sid1067', 'sid1162', 'sid1166', 'sid1173', 'sid1204', 'sid1400', 'sid1507', 'sid1518', 'sid1601', 'sid1615', 'sid1638', 'sid1661', 'sid1921']
+    """
     
     # impute missing body weight
     nanids = np.isnan(bodyweights)
@@ -141,9 +150,8 @@ if __name__=='__main__':
     df_bodyweights2.to_csv(os.path.join(output_dir, 'body_weights.csv'), index=False)
     
     # for each patient
-    
-    sids_no_drug = []
-    sids_no_iic = []
+    no_drug_ids = []
+    no_iic_ids = []
     output_dir = os.path.join(output_dir, 'drug_timeseries_2000pts')
     for si, sid in enumerate(tqdm(sids)):
         output_path = os.path.join(output_dir, '%s_2secWindow.mat'%sid)
@@ -151,7 +159,7 @@ if __name__=='__main__':
         #    continue
         drug_df_ = drug_df[drug_df.MRN==mrns[si]]
         if len(drug_df_)==0:
-            sids_no_drug.append(sid)
+            no_drug_ids.append(si)
             continue
         drug_df_ = drug_df_.sort_values('Admin_Time').reset_index(drop=True)
         eeg_start_time = eeg_start_times[si]
@@ -159,7 +167,7 @@ if __name__=='__main__':
         #labels = pd.read_csv([x for x in human_label_paths if 'sid%04d'%int(sid[3:]) in x][0], header=None)
         this_label_paths = [x for x in label_paths if x.startswith(sid+'_')]
         if len(this_label_paths)==0:
-            sids_no_iic.append(sid)
+            no_iic_ids.append(si)
             continue
         label_start_times = [datetime.datetime.strptime(x[x.find('_'):],'_%Y%m%d_%H%M%S.npy')+datetime.timedelta(seconds=pad_time) for x in this_label_paths]
         label_start_time = min(label_start_times)
@@ -217,10 +225,13 @@ if __name__=='__main__':
                    'eeg_start_time': datetime.datetime.strftime(eeg_start_time, '%Y/%m/%d %H:%M:%S')})
         sio.savemat(output_path, res)
         
-    print(f'{len(sids_no_drug)} subjects does not have matching drug records: {sids_no_drug}')
-    print(f'{len(sids_no_iic)} subjects does not have matching IIC labels: {sids_no_iic}')
+    EPIC_TIME = datetime.datetime(2016,4,1)
+    N_preEpic = np.sum(pd.to_datetime(master_list['Date of admission '].iloc[no_drug_ids])<=EPIC_TIME)
+    N_postEpic = np.sum(pd.to_datetime(master_list['Date of admission '].iloc[no_drug_ids])>EPIC_TIME)
+    print(f'{len(no_drug_ids)} subjects does not have matching drug records, {N_preEpic} is pre-Epic, {N_postEpic} is post-Epic: {master_list.Index.iloc[no_drug_ids]}')
+    print(f'{len(no_iic_ids)} subjects does not have matching IIC labels: {master_list.Index.iloc[no_iic_ids]}')
             
     """
-    458 subjects does not have matching drug records: ['sid1', 'sid10', 'sid11', 'sid19', 'sid20', 'sid23', 'sid25', 'sid29', 'sid34', 'sid37', 'sid38', 'sid43', 'sid44', 'sid45', 'sid46', 'sid47', 'sid49', 'sid53', 'sid58', 'sid62', 'sid64', 'sid65', 'sid68', 'sid72', 'sid75', 'sid79', 'sid84', 'sid85', 'sid97', 'sid101', 'sid103', 'sid105', 'sid106', 'sid108', 'sid112', 'sid114', 'sid115', 'sid118', 'sid119', 'sid129', 'sid134', 'sid135', 'sid137', 'sid141', 'sid147', 'sid157', 'sid158', 'sid159', 'sid161', 'sid170', 'sid171', 'sid173', 'sid175', 'sid176', 'sid179', 'sid188', 'sid191', 'sid194', 'sid200', 'sid202', 'sid206', 'sid211', 'sid213', 'sid217', 'sid218', 'sid220', 'sid221', 'sid222', 'sid223', 'sid229', 'sid230', 'sid233', 'sid235', 'sid243', 'sid244', 'sid246', 'sid247', 'sid248', 'sid249', 'sid255', 'sid256', 'sid257', 'sid259', 'sid275', 'sid276', 'sid279', 'sid281', 'sid284', 'sid309', 'sid312', 'sid313', 'sid319', 'sid321', 'sid324', 'sid333', 'sid343', 'sid346', 'sid349', 'sid354', 'sid356', 'sid361', 'sid368', 'sid370', 'sid371', 'sid372', 'sid380', 'sid382', 'sid389', 'sid397', 'sid399', 'sid401', 'sid405', 'sid407', 'sid408', 'sid414', 'sid419', 'sid448', 'sid457', 'sid501', 'sid548', 'sid587', 'sid588', 'sid595', 'sid597', 'sid600', 'sid610', 'sid614', 'sid618', 'sid625', 'sid626', 'sid629', 'sid633', 'sid634', 'sid640', 'sid645', 'sid647', 'sid649', 'sid651', 'sid654', 'sid659', 'sid660', 'sid664', 'sid670', 'sid672', 'sid680', 'sid688', 'sid690', 'sid695', 'sid702', 'sid703', 'sid709', 'sid711', 'sid712', 'sid733', 'sid735', 'sid739', 'sid743', 'sid744', 'sid746', 'sid750', 'sid754', 'sid755', 'sid757', 'sid759', 'sid761', 'sid763', 'sid765', 'sid770', 'sid771', 'sid778', 'sid779', 'sid781', 'sid783', 'sid787', 'sid788', 'sid791', 'sid793', 'sid794', 'sid795', 'sid796', 'sid797', 'sid803', 'sid806', 'sid807', 'sid808', 'sid811', 'sid813', 'sid822', 'sid828', 'sid829', 'sid830', 'sid859', 'sid863', 'sid864', 'sid865', 'sid875', 'sid889', 'sid890', 'sid891', 'sid892', 'sid907', 'sid908', 'sid913', 'sid927', 'sid961', 'sid963', 'sid968', 'sid973', 'sid975', 'sid976', 'sid977', 'sid978', 'sid982', 'sid984', 'sid985', 'sid986', 'sid989', 'sid991', 'sid993', 'sid997', 'sid998', 'sid1000', 'sid1003', 'sid1004', 'sid1005', 'sid1008', 'sid1009', 'sid1010', 'sid1011', 'sid1015', 'sid1045', 'sid1080', 'sid1084', 'sid1093', 'sid1101', 'sid1102', 'sid1105', 'sid1137', 'sid1140', 'sid1145', 'sid1150', 'sid1152', 'sid1159', 'sid1164', 'sid1170', 'sid1175', 'sid1176', 'sid1177', 'sid1178', 'sid1179', 'sid1181', 'sid1182', 'sid1186', 'sid1187', 'sid1195', 'sid1196', 'sid1202', 'sid1205', 'sid1206', 'sid1214', 'sid1215', 'sid1226', 'sid1230', 'sid1232', 'sid1239', 'sid1246', 'sid1249', 'sid1250', 'sid1251', 'sid1262', 'sid1263', 'sid1271', 'sid1273', 'sid1277', 'sid1278', 'sid1286', 'sid1288', 'sid1291', 'sid1299', 'sid1302', 'sid1303', 'sid1310', 'sid1319', 'sid1322', 'sid1326', 'sid1339', 'sid1340', 'sid1347', 'sid1351', 'sid1354', 'sid1356', 'sid1357', 'sid1366', 'sid1367', 'sid1371', 'sid1379', 'sid1388', 'sid1389', 'sid1391', 'sid1394', 'sid1396', 'sid1403', 'sid1405', 'sid1407', 'sid1408', 'sid1410', 'sid1411', 'sid1416', 'sid1417', 'sid1423', 'sid1424', 'sid1432', 'sid1433', 'sid1448', 'sid1449', 'sid1451', 'sid1454', 'sid1459', 'sid1462', 'sid1463', 'sid1465', 'sid1467', 'sid1469', 'sid1470', 'sid1485', 'sid1487', 'sid1488', 'sid1496', 'sid1504', 'sid1505', 'sid1508', 'sid1511', 'sid1515', 'sid1521', 'sid1524', 'sid1529', 'sid1533', 'sid1536', 'sid1538', 'sid1539', 'sid1541', 'sid1542', 'sid1550', 'sid1554', 'sid1557', 'sid1560', 'sid1566', 'sid1567', 'sid1569', 'sid1571', 'sid1572', 'sid1579', 'sid1580', 'sid1581', 'sid1582', 'sid1585', 'sid1586', 'sid1587', 'sid1588', 'sid1590', 'sid1592', 'sid1596', 'sid1598', 'sid1604', 'sid1609', 'sid1611', 'sid1612', 'sid1613', 'sid1622', 'sid1626', 'sid1629', 'sid1640', 'sid1643', 'sid1645', 'sid1649', 'sid1650', 'sid1653', 'sid1666', 'sid1673', 'sid1690', 'sid1693', 'sid1694', 'sid1702', 'sid1705', 'sid1706', 'sid1707', 'sid1717', 'sid1720', 'sid1722', 'sid1727', 'sid1728', 'sid1730', 'sid1735', 'sid1736', 'sid1740', 'sid1744', 'sid1745', 'sid1746', 'sid1747', 'sid1748', 'sid1749', 'sid1753', 'sid1762', 'sid1767', 'sid1769', 'sid1774', 'sid1776', 'sid1778', 'sid1785', 'sid1788', 'sid1793', 'sid1801', 'sid1802', 'sid1806', 'sid1813', 'sid1823', 'sid1824', 'sid1830', 'sid1833', 'sid1835', 'sid1843', 'sid1845', 'sid1847', 'sid1852', 'sid1853', 'sid1855', 'sid1860', 'sid1862', 'sid1866', 'sid1874', 'sid1891', 'sid1896', 'sid1900', 'sid1902', 'sid1909', 'sid1910', 'sid1911', 'sid1912', 'sid1931', 'sid1936', 'sid1937', 'sid1938', 'sid1952', 'sid1962', 'sid1973', 'sid1974', 'sid1977', 'sid1979', 'sid1982', 'sid1987', 'sid1988', 'sid1992', 'sid1993', 'sid1994', 'sid1995', 'sid1996', 'sid1998', 'sid2000']
+    458 subjects does not have matching drug records, {413} is pre-Epic, {45} is post-Epic: ['sid1', 'sid10', 'sid11', 'sid19', 'sid20', 'sid23', 'sid25', 'sid29', 'sid34', 'sid37', 'sid38', 'sid43', 'sid44', 'sid45', 'sid46', 'sid47', 'sid49', 'sid53', 'sid58', 'sid62', 'sid64', 'sid65', 'sid68', 'sid72', 'sid75', 'sid79', 'sid84', 'sid85', 'sid97', 'sid101', 'sid103', 'sid105', 'sid106', 'sid108', 'sid112', 'sid114', 'sid115', 'sid118', 'sid119', 'sid129', 'sid134', 'sid135', 'sid137', 'sid141', 'sid147', 'sid157', 'sid158', 'sid159', 'sid161', 'sid170', 'sid171', 'sid173', 'sid175', 'sid176', 'sid179', 'sid188', 'sid191', 'sid194', 'sid200', 'sid202', 'sid206', 'sid211', 'sid213', 'sid217', 'sid218', 'sid220', 'sid221', 'sid222', 'sid223', 'sid229', 'sid230', 'sid233', 'sid235', 'sid243', 'sid244', 'sid246', 'sid247', 'sid248', 'sid249', 'sid255', 'sid256', 'sid257', 'sid259', 'sid275', 'sid276', 'sid279', 'sid281', 'sid284', 'sid309', 'sid312', 'sid313', 'sid319', 'sid321', 'sid324', 'sid333', 'sid343', 'sid346', 'sid349', 'sid354', 'sid356', 'sid361', 'sid368', 'sid370', 'sid371', 'sid372', 'sid380', 'sid382', 'sid389', 'sid397', 'sid399', 'sid401', 'sid405', 'sid407', 'sid408', 'sid414', 'sid419', 'sid448', 'sid457', 'sid501', 'sid548', 'sid587', 'sid588', 'sid595', 'sid597', 'sid600', 'sid610', 'sid614', 'sid618', 'sid625', 'sid626', 'sid629', 'sid633', 'sid634', 'sid640', 'sid645', 'sid647', 'sid649', 'sid651', 'sid654', 'sid659', 'sid660', 'sid664', 'sid670', 'sid672', 'sid680', 'sid688', 'sid690', 'sid695', 'sid702', 'sid703', 'sid709', 'sid711', 'sid712', 'sid733', 'sid735', 'sid739', 'sid743', 'sid744', 'sid746', 'sid750', 'sid754', 'sid755', 'sid757', 'sid759', 'sid761', 'sid763', 'sid765', 'sid770', 'sid771', 'sid778', 'sid779', 'sid781', 'sid783', 'sid787', 'sid788', 'sid791', 'sid793', 'sid794', 'sid795', 'sid796', 'sid797', 'sid803', 'sid806', 'sid807', 'sid808', 'sid811', 'sid813', 'sid822', 'sid828', 'sid829', 'sid830', 'sid859', 'sid863', 'sid864', 'sid865', 'sid875', 'sid889', 'sid890', 'sid891', 'sid892', 'sid907', 'sid908', 'sid913', 'sid927', 'sid961', 'sid963', 'sid968', 'sid973', 'sid975', 'sid976', 'sid977', 'sid978', 'sid982', 'sid984', 'sid985', 'sid986', 'sid989', 'sid991', 'sid993', 'sid997', 'sid998', 'sid1000', 'sid1003', 'sid1004', 'sid1005', 'sid1008', 'sid1009', 'sid1010', 'sid1011', 'sid1015', 'sid1045', 'sid1080', 'sid1084', 'sid1093', 'sid1101', 'sid1102', 'sid1105', 'sid1137', 'sid1140', 'sid1145', 'sid1150', 'sid1152', 'sid1159', 'sid1164', 'sid1170', 'sid1175', 'sid1176', 'sid1177', 'sid1178', 'sid1179', 'sid1181', 'sid1182', 'sid1186', 'sid1187', 'sid1195', 'sid1196', 'sid1202', 'sid1205', 'sid1206', 'sid1214', 'sid1215', 'sid1226', 'sid1230', 'sid1232', 'sid1239', 'sid1246', 'sid1249', 'sid1250', 'sid1251', 'sid1262', 'sid1263', 'sid1271', 'sid1273', 'sid1277', 'sid1278', 'sid1286', 'sid1288', 'sid1291', 'sid1299', 'sid1302', 'sid1303', 'sid1310', 'sid1319', 'sid1322', 'sid1326', 'sid1339', 'sid1340', 'sid1347', 'sid1351', 'sid1354', 'sid1356', 'sid1357', 'sid1366', 'sid1367', 'sid1371', 'sid1379', 'sid1388', 'sid1389', 'sid1391', 'sid1394', 'sid1396', 'sid1403', 'sid1405', 'sid1407', 'sid1408', 'sid1410', 'sid1411', 'sid1416', 'sid1417', 'sid1423', 'sid1424', 'sid1432', 'sid1433', 'sid1448', 'sid1449', 'sid1451', 'sid1454', 'sid1459', 'sid1462', 'sid1463', 'sid1465', 'sid1467', 'sid1469', 'sid1470', 'sid1485', 'sid1487', 'sid1488', 'sid1496', 'sid1504', 'sid1505', 'sid1508', 'sid1511', 'sid1515', 'sid1521', 'sid1524', 'sid1529', 'sid1533', 'sid1536', 'sid1538', 'sid1539', 'sid1541', 'sid1542', 'sid1550', 'sid1554', 'sid1557', 'sid1560', 'sid1566', 'sid1567', 'sid1569', 'sid1571', 'sid1572', 'sid1579', 'sid1580', 'sid1581', 'sid1582', 'sid1585', 'sid1586', 'sid1587', 'sid1588', 'sid1590', 'sid1592', 'sid1596', 'sid1598', 'sid1604', 'sid1609', 'sid1611', 'sid1612', 'sid1613', 'sid1622', 'sid1626', 'sid1629', 'sid1640', 'sid1643', 'sid1645', 'sid1649', 'sid1650', 'sid1653', 'sid1666', 'sid1673', 'sid1690', 'sid1693', 'sid1694', 'sid1702', 'sid1705', 'sid1706', 'sid1707', 'sid1717', 'sid1720', 'sid1722', 'sid1727', 'sid1728', 'sid1730', 'sid1735', 'sid1736', 'sid1740', 'sid1744', 'sid1745', 'sid1746', 'sid1747', 'sid1748', 'sid1749', 'sid1753', 'sid1762', 'sid1767', 'sid1769', 'sid1774', 'sid1776', 'sid1778', 'sid1785', 'sid1788', 'sid1793', 'sid1801', 'sid1802', 'sid1806', 'sid1813', 'sid1823', 'sid1824', 'sid1830', 'sid1833', 'sid1835', 'sid1843', 'sid1845', 'sid1847', 'sid1852', 'sid1853', 'sid1855', 'sid1860', 'sid1862', 'sid1866', 'sid1874', 'sid1891', 'sid1896', 'sid1900', 'sid1902', 'sid1909', 'sid1910', 'sid1911', 'sid1912', 'sid1931', 'sid1936', 'sid1937', 'sid1938', 'sid1952', 'sid1962', 'sid1973', 'sid1974', 'sid1977', 'sid1979', 'sid1982', 'sid1987', 'sid1988', 'sid1992', 'sid1993', 'sid1994', 'sid1995', 'sid1996', 'sid1998', 'sid2000']
     0 subjects does not have matching IIC labels: []
     """

@@ -5,12 +5,13 @@ import numpy as np
 from scipy.special import logit
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from myfunctions import preprocess, get_pk_k
 SIMULATOR_PATH = 'step6_simulator'
 OUTCOME_PREDICTION_PATH = 'step7_outcome_regression'
 sys.path.insert(0, SIMULATOR_PATH)
 from simulator import *
 sys.path.insert(0, OUTCOME_PREDICTION_PATH)
-from fit_model import read_data, generate_outcome_X
+from fit_model_ordinal import read_data, generate_outcome_X
 
 
 def drug_from_constant(val, drug=None):
@@ -35,9 +36,22 @@ def drug_from_constant(val, drug=None):
     return func
 
 
-def drug_from_data(data):
+def drug_from_concentration(data):
     def func(Ps, D, C, Dname, sid, t):
         res = data[sid][t]
+        return res
+    return func
+
+
+def drug_from_dose(dose_, PK_K, shuffle=False, random_state=None):
+    def func(Ps, D, C, Dname, sid, t):
+        dose = dose_[sid][t]
+        if shuffle:
+            # generate list of drug on/off times, dose, and type (infusion/bolus)
+            # shuffle
+            np.random.seed(random_state)
+            # generate dose time series
+            # generate concentration time_series
         return res
     return func
 
@@ -140,21 +154,24 @@ if __name__=='__main__':
     outcome_model = res['model']
     
     ## define drug regimes to evaluate
+    PK_K = get_pk_k()
     drug_regimes = {
-        'always_zero':drug_from_constant(0),
-        'always_propofol_1':drug_from_constant(1, drug='propofol'),
-        'always_propofol_5':drug_from_constant(5, drug='propofol'),
-        'always_propofol_10':drug_from_constant(10, drug='propofol'),
-        'always_propofol_20':drug_from_constant(20, drug='propofol'),
-        'always_propofol_30':drug_from_constant(30, drug='propofol'),
-        'always_propofol_40':drug_from_constant(40, drug='propofol'),
-        'always_propofol_50':drug_from_constant(50, drug='propofol'),
-        'actual_drug':drug_from_data(D),
-        'actual_drugx2':drug_from_data([d*2 for d in D]),
-        'actual_drugx4':drug_from_data([d*4 for d in D]),
-        'actual_drugx6':drug_from_data([d*6 for d in D]),
-        'actual_drugx8':drug_from_data([d*8 for d in D]),
-        'actual_drugx10':drug_from_data([d*10 for d in D]),
+            #'always_zero':drug_from_constant(0),
+            #'always_propofol_1':drug_from_constant(1, drug='propofol'),
+            #'always_propofol_5':drug_from_constant(5, drug='propofol'),
+            #'always_propofol_10':drug_from_constant(10, drug='propofol'),
+            #'always_propofol_20':drug_from_constant(20, drug='propofol'),
+            #'always_propofol_30':drug_from_constant(30, drug='propofol'),
+            #'always_propofol_40':drug_from_constant(40, drug='propofol'),
+            'always_propofol_50':drug_from_constant(50, drug='propofol'),
+            #'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
+            #'actual_drug':drug_from_concentration(D),
+            #'actual_drugx2':drug_from_concentration([d*2 for d in D]),
+            #'actual_drugx4':drug_from_concentration([d*4 for d in D]),
+            #'actual_drugx6':drug_from_concentration([d*6 for d in D]),
+            #'actual_drugx8':drug_from_concentration([d*8 for d in D]),
+            #'actual_drugx10':drug_from_concentration([d*10 for d in D]),
+            #'shuffle_drug':drug_from_dose([d for d in Ddose], PK_K, shuffle=True, random_state=random_state),
     }
     
     ## for each drug regime, evaluate drug regime
@@ -168,13 +185,20 @@ if __name__=='__main__':
             res = par(delayed(evaluate_one_patient)(
                     i, D, Dname, Dmax, Pobs, C, cluster,
                     responses, simulator, outcome_model,
-                    drug_regime_func, AR_p, W) for i in tqdm(range(N)))
-        Yd[regime_name] = np.array(res).mean(axis=1)
-        print(f'Y({regime_name}) = {np.mean(Yd[regime_name][:,4:].sum(axis=1))}')
+                    drug_regime_func, AR_p, W) for i in tqdm(range(14*3)))
+        yd_ = np.array(res)
+        import pdb;pdb.set_trace()
+        if yd_.shape[-1]==2:
+            yd_ = yd_[...,1]
+        else:
+            yd_ = yd_[...,4:].sum(axis=-1)
+        Yd[regime_name] = yd_#.mean(axis=1)
+        mean_ = np.nanmean(np.nanmean(Yd[regime_name], axis=0))
+        lb_, ub_ = np.nanpercentile(np.nanmean(Yd[regime_name], axis=0), (2.5,97.5))
+        print(f'Y({regime_name}) = {mean_:.4f} [{lb_:.4f} -- {ub_:.4f}]')
 
         with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}.pickle', 'wb') as ff:
             pickle.dump(Yd, ff)
-    import pdb;pdb.set_trace()
         
 """
 ids2=(C[:,1]<=55)&(C[:,-5]<=8.5)&(C[:,-4]<=7)&(C[:,4]==0)&(C[:,15]==0)&(C[:,20]==0)

@@ -125,7 +125,8 @@ if __name__=='__main__':
     #human_label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/human_annotation_from_brandon/Label'
     #human_label_dir = '/home/sunhaoqi/Desktop/IIC_human_labels'
     #human_label_paths = glob.glob(os.path.join(human_label_dir, '*.csv'))
-    label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/data_score/cnn_label_24h_2000pt'
+    #label_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/data_score/cnn_label_24h_2000pt'
+    label_dir = '/data/IIC-Causality/data_score/cnn_label_24h_2000pt'
     label_paths = os.listdir(label_dir)
     
     #drug_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'

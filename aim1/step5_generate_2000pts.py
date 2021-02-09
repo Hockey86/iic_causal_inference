@@ -1,6 +1,7 @@
 from itertools import groupby
 import os
 import pickle
+import sys
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -20,10 +21,8 @@ if __name__=='__main__':
                     'propofol', 'valproate']
     PK_K = get_pk_k()
     
-    response_tostudy = 'iic_burden_smooth'
-    #response_tostudy = 'spike_rate'
+    response_tostudy = str(sys.argv[1])# iic_burden_smooth or spike_rate
     outcome_tostudy = 'DC MRS (modified ranking scale)'
-    output_path = 'data_to_fit_CNNIIC_%s.pickle'%response_tostudy
     
     ## preprocess data
     
@@ -31,16 +30,18 @@ if __name__=='__main__':
     pmrns = []
     Pobs = []
     D = []
+    Ddose = []
     C = []
     Y = []
     window_start_ids = []
     #spec = []
     #freq = []
     for sid in tqdm(sids):
-        pmrn, Pobs_, D_, Dname, C_, Cname, Y_, ids = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy, outcome_tostudy)
+        pmrn, Pobs_, D_, Ddose_, Dname, C_, Cname, Y_, ids = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy, outcome_tostudy)
         pmrns.append(pmrn)
         Pobs.append(Pobs_)
         D.append(D_)
+        Ddose.append(Ddose_)
         C.append(C_)
         Y.append(Y_)
         window_start_ids.append(ids)
@@ -69,27 +70,28 @@ if __name__=='__main__':
 
     print('%d patients'%len(sids))
     
-    # exclude patients with IIC = 0
-    keep_ids = np.array([np.nanmax(Pobs[i])>0 for i in range(len(sids))])
     # exclude patients with short signal
     min_len = 12
-    keep_ids &= np.array([len(D[i])>=min_len for i in range(len(sids))])
-    # exclude patients with missing dose
-    keep_ids &= np.array([~np.any(np.isnan(D[i])) for i in range(len(sids))])
+    keep_ids = np.array([len(D[i])>=min_len for i in range(len(sids))])
+    
+    # exclude patients with IIC = 0
+    #keep_ids &= np.array([np.nanmax(Pobs[i])>0 for i in range(len(sids))])
     # exclude patients with no drug
-    keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
+    #keep_ids &= np.array([~np.all(D[i]==0) for i in range(len(sids))])
     
     keep_ids = np.where(keep_ids)[0]
     pmrns = [pmrns[i] for i in keep_ids]
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
+    Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
 
+    """
     # # remove flat drug at the beginning or end
 
     #starts = []
@@ -120,6 +122,7 @@ if __name__=='__main__':
 
         Pobs[i] = Pobs[i][start:end]
         D[i] = D[i][start:end]
+        Ddose[i] = Ddose[i][start:end]
         window_start_ids[i] = window_start_ids[i][start:end]
         #starts.append(start)
         #ends.append(end)
@@ -129,11 +132,13 @@ if __name__=='__main__':
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
+    Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
+    """
     
     # # remove subjects with long continuous NaN in Pobs
     thres = 0.3
@@ -155,6 +160,7 @@ if __name__=='__main__':
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
+    Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
@@ -176,6 +182,7 @@ if __name__=='__main__':
             continue
         Pobs[i] = Pobs[i][t:]
         D[i] = D[i][t:]
+        Ddose[i] = Ddose[i][t:]
         window_start_ids[i] = window_start_ids[i][t:]
 
     keep_ids = np.where([len(D[i])>=min_len for i in range(len(sids))])[0]
@@ -183,6 +190,7 @@ if __name__=='__main__':
     sids = [sids[i] for i in keep_ids]
     Pobs = [Pobs[i] for i in keep_ids]
     D = [D[i] for i in keep_ids]
+    Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
     cluster = LabelEncoder().fit_transform(cluster[keep_ids])
@@ -190,9 +198,10 @@ if __name__=='__main__':
     print('%d patients'%len(sids))
     
     import pdb;pdb.set_trace()
+    output_path = f'data_to_fit_CNNIIC_{response_tostudy}.pickle'
     with open(output_path, 'wb') as f:
         pickle.dump({'W':W, 'window_start_ids':window_start_ids,
-                     'D':D, 'Dname':Dname,
+                     'D':D, 'Ddose':Ddose, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':response_tostudy,
                      'C':C, 'Cname':Cname,
                      'Y':Y, 'Yname':outcome_tostudy,

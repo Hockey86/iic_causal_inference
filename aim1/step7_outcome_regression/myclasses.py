@@ -227,9 +227,13 @@ class LTRPairwise(BaseEstimator, ClassifierMixin):
         return yp1d
 
 
-
-def decide_neighbor(X, Xref, n_neighbors, sigma=None, relative=True):
+def tricube(x):
+    return (1-np.abs(x)**3)**3
+    
+    
+def decide_neighbor(X, Xref, n_neighbors, sigma=None, relative=True, weight=False):
     dists = np.sqrt(cdist(X, Xref, metric='sqeuclidean')/X.shape[1])
+    max_dist = dists.max()
     if sigma is None:
         sigma_ = np.inf
     else:
@@ -238,15 +242,26 @@ def decide_neighbor(X, Xref, n_neighbors, sigma=None, relative=True):
             sigma_ = q1 + (q3-q1)*sigma
         else:
             sigma_ = sigma
+    # if weight, make the criteria more relaxed
+    if weight:
+        sigma_ *= 2
+        n_neighbors *= 2
     inside_sigma = dists<=sigma_
     
     neighbors = []
+    weights = []
     for i in range(len(dists)):
         if inside_sigma[i].sum()<=n_neighbors:
             neighbors.append(np.where(inside_sigma[i])[0])
         else:
             neighbors.append(np.argsort(dists[i])[:n_neighbors])
-    return neighbors
+        if weight:
+            weights.append(tricube(dists[i][neighbors[-1]]/max_dist))
+        
+    if weight:
+        return neighbors, weights
+    else:
+        return neighbors
     
     
 class LocalModel(BaseEstimator, ClassifierMixin):
@@ -294,8 +309,8 @@ class KNN(LocalModel):
         self.relative = relative
         self.impute_KNN_K = impute_KNN_K
     
-    def predict_proba(self, X_):
-        X = np.array(X_[:,self.good_ids])
+    def predict_proba(self, X):
+        X = np.array(X[:,self.good_ids])
 
         # standardize
         X[:,self.cont_idx] = (X[:,self.cont_idx]-self.Xmean)/self.Xstd
@@ -306,12 +321,18 @@ class KNN(LocalModel):
         
         neighbors = decide_neighbor(X, self.X, self.n_neighbors, sigma= self.sigma, relative= self.relative)
         yp = []
+        Nclass = len(self.classes_)
         for i in range(len(X)):
-            if len(neighbors[i])==0:
-                counter = Counter(self.y)
+            if len(neighbors[i])<=3:
+                yp_ = [0]*Nclass
+                idx = np.random.choice(
+                        np.arange(Nclass), replace=False,
+                        p=[np.mean(self.y==l) for l in np.arange(Nclass)])
+                yp_[idx] = 1
+                yp.append(yp_)
             else:
                 counter = Counter(self.y[neighbors[i]])
-            yp.append( [counter[k] for k in range(len(self.classes_))] )
+                yp.append( [counter[k] for k in range(len(self.classes_))] )
         yp = np.array(yp)
         yp = yp*1./yp.sum(axis=1, keepdims=True)
         return yp
@@ -325,15 +346,33 @@ class LOWESS(LocalModel):
         self.relative = relative
         self.impute_KNN_K = impute_KNN_K
     
-    def predict_proba(self, X_):
-        X = np.array(X_[:,self.good_ids])
-        X[:,self.cont_idx] = (X[:,self.cont_idx]-self.Xmean) / self.Xstd
+    def predict_proba(self, X):
+        X = np.array(X[:,self.good_ids])
+        # standardize
+        X[:,self.cont_idx] = (X[:,self.cont_idx]-self.Xmean)/self.Xstd
+        # impute missing value
+        if np.any(np.isnan(X)):
+            X = self.imputer.transform(X)
+            X[:,self.binary_idx] = (X[:,self.binary_idx]>0.5).astype(float)
         
-        neighbors = decide_neighbor(X, self.X, self.n_neighbors, sigma= self.sigma, relative= self.relative)
+        neighbors, weights = decide_neighbor(X, self.X, self.n_neighbors, sigma= self.sigma, relative= self.relative, weight=True)
         yp = []
+        Nclass = len(self.classes_)
         for i in range(len(X)):
-            local_model = self.model.fit(self.X[neighbors[i]], self.y[neighbors[i]])
-            yp.append( local_model.predict_proba(X[i].reshape(1,-1))[0] )
+            if len(neighbors[i])>=10 and len(set(self.y[neighbors[i]]))==1:
+                yp_ = [0]*Nclass
+                yp_[self.y[neighbors[i][0]]] = 1
+                yp.append(yp_)
+            elif len(neighbors[i])<=10:
+                yp_ = [0]*Nclass
+                idx = np.random.choice(
+                        np.arange(Nclass), replace=False,
+                        p=[np.mean(self.y==l) for l in np.arange(Nclass)])
+                yp_[idx] = 1
+                yp.append(yp_)
+            else:
+                local_model = self.model.fit(self.X[neighbors[i]], self.y[neighbors[i]], sample_weight=weights[i])
+                yp.append( local_model.predict_proba(X[i].reshape(1,-1))[0] )
         yp = np.array(yp)
         return yp
         

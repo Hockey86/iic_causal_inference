@@ -20,7 +20,7 @@ def get_pk_k():
     return PK_K
 
 
-def drug_concentration(d_ts,k):
+def drug_concentration(d_ts, k):
     """
     d_ts.shape = (#drug, T)
     """
@@ -92,6 +92,7 @@ def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, outcome_
     #PK
     Ddose = np.array([p[x] for x in drugs_tostudy])
     D = drug_concentration(Ddose, PK_K[drugs_tostudy].values).T
+    Ddose = Ddose.T
 
     #cov_tostudy = ['Age']
     C = pd.read_csv(os.path.join(data_dir, 'covariates.csv'))
@@ -103,5 +104,5 @@ def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, outcome_
     Y[outcome_tostudy] = Y[outcome_tostudy].astype(float)
     Y = Y[outcome_tostudy][Y.Index==sid].values[0]#[cov_tostudy]
     
-    return p['PseudoMRN'], Pobs, D, drugs_tostudy, C, Cname, Y, p['window_start_ids']#, p['spec'], p['freq']
+    return p['PseudoMRN'], Pobs, D, Ddose, drugs_tostudy, C, Cname, Y, p['window_start_ids']#, p['spec'], p['freq']
     

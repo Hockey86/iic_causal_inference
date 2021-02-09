@@ -1,0 +1,39 @@
+name,coef
+burden_pentobarbital,1.474503495689363
+Primary systemic dx Sepsis/Shock,1.4367707861274097
+Midline shift with any reason ( Document Date),1.3681389076203876
+Age,0.7917881472295768
+prim_dx_Respiratory disorders,0.649775026710986
+burden_midazolam,0.6126314867878374
+"premorbid MRS before admission  (modified ranking scale),before admission",0.5555689165778169
+hydrocephalus  (either on admission or during hospital course)   QPID,0.5389752045980671
+burden_iic burden x spike rate,0.4579860645261072
+Hx DM,0.37633283349875624
+Hx CAD/MI,0.3715148676543395
+Hx cancer (other than CNS cancer),0.2884319638453481
+burden_propofol,0.1668373477155694
+burden_levetiracetam,0.15946595942793437
+Hx of HLD,0.1295610383132494
+Hx CHF,0.12880519126244502
+burden_iic_burden_smooth,0.09863900577386252
+"Hx other substance abuse, any time in their life",0.09232991281676757
+mean arterial pressure,0.07371270942574455
+Hx COPD/ Asthma,0.05404607213775401
+Hx CKD,0.0
+neuro_dx_Seizures/status epilepticus,0.0
+Hx Sz /epilepsy,0.0
+Hx tobacco (including ex-smokers),0.0
+Hx ETOH abuse any time in their life (just when in the hx is mentioned),0.0
+Hx HTN,0.0
+Hx CVA (including TIA),0.0
+Hx CNS cancer,0.0
+Hx brain surgery,0.0
+"SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)",0.0
+iMV  (initial (on admission) mechanical ventilation),0.0
+Gender,-0.018929081844340542
+burden_phenobarbital,-0.022645826343441967
+burden_valproate,-0.04311792244280997
+burden_lacosamide,-0.16802822186434704
+marrital,-0.24740309086327006
+burden_spike_rate,-0.33103269196116575
+iGCS-Total,-0.48661627818896136
