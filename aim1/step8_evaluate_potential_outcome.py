@@ -11,7 +11,7 @@ OUTCOME_PREDICTION_PATH = 'step7_outcome_regression'
 sys.path.insert(0, SIMULATOR_PATH)
 from simulator import *
 sys.path.insert(0, OUTCOME_PREDICTION_PATH)
-from fit_model_ordinal import read_data, generate_outcome_X
+from fit_model_ordinal import generate_outcome_X
 
 
 def drug_from_constant(val, drug=None):
@@ -125,15 +125,20 @@ if __name__=='__main__':
     MA_q = 6
     max_iter = 1000
     Nbt = 0
-    n_jobs = 14
+    n_jobs = 8
     random_state = 2020
     
-    responses_txt = '_'.join(responses)
+    responses_txt = '+'.join(responses)
     
     ## load data
     
-    sids, pseudoMRNs, Pobs, D, Dname, C, Cname, Y, Yname, window_start_ids, cluster, W = read_data('.', data_type, responses)
+    with open(f'data_to_fit_{data_type}_{responses_txt}.pickle','rb') as ff:
+        res = pickle.load(ff)
+    for k in res:
+        exec(f'{k} = res[\'{k}\']')
+    y = Y.astype(int)
     N = len(sids)
+    print(f'{N} patients')
     
     ## load simulator
     
@@ -156,21 +161,21 @@ if __name__=='__main__':
     ## define drug regimes to evaluate
     PK_K = get_pk_k()
     drug_regimes = {
-            #'always_zero':drug_from_constant(0),
-            #'always_propofol_1':drug_from_constant(1, drug='propofol'),
-            #'always_propofol_5':drug_from_constant(5, drug='propofol'),
-            #'always_propofol_10':drug_from_constant(10, drug='propofol'),
-            #'always_propofol_20':drug_from_constant(20, drug='propofol'),
-            #'always_propofol_30':drug_from_constant(30, drug='propofol'),
-            #'always_propofol_40':drug_from_constant(40, drug='propofol'),
+            'always_zero':drug_from_constant(0),
+            'always_propofol_1':drug_from_constant(1, drug='propofol'),
+            'always_propofol_5':drug_from_constant(5, drug='propofol'),
+            'always_propofol_10':drug_from_constant(10, drug='propofol'),
+            'always_propofol_20':drug_from_constant(20, drug='propofol'),
+            'always_propofol_30':drug_from_constant(30, drug='propofol'),
+            'always_propofol_40':drug_from_constant(40, drug='propofol'),
             'always_propofol_50':drug_from_constant(50, drug='propofol'),
-            #'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
-            #'actual_drug':drug_from_concentration(D),
-            #'actual_drugx2':drug_from_concentration([d*2 for d in D]),
-            #'actual_drugx4':drug_from_concentration([d*4 for d in D]),
-            #'actual_drugx6':drug_from_concentration([d*6 for d in D]),
-            #'actual_drugx8':drug_from_concentration([d*8 for d in D]),
-            #'actual_drugx10':drug_from_concentration([d*10 for d in D]),
+            'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
+            'actual_drug':drug_from_concentration(D),
+            'actual_drugx2':drug_from_concentration([d*2 for d in D]),
+            'actual_drugx4':drug_from_concentration([d*4 for d in D]),
+            'actual_drugx6':drug_from_concentration([d*6 for d in D]),
+            'actual_drugx8':drug_from_concentration([d*8 for d in D]),
+            'actual_drugx10':drug_from_concentration([d*10 for d in D]),
             #'shuffle_drug':drug_from_dose([d for d in Ddose], PK_K, shuffle=True, random_state=random_state),
     }
     
@@ -185,9 +190,8 @@ if __name__=='__main__':
             res = par(delayed(evaluate_one_patient)(
                     i, D, Dname, Dmax, Pobs, C, cluster,
                     responses, simulator, outcome_model,
-                    drug_regime_func, AR_p, W) for i in tqdm(range(14*3)))
+                    drug_regime_func, AR_p, W) for i in tqdm(range(N)))
         yd_ = np.array(res)
-        import pdb;pdb.set_trace()
         if yd_.shape[-1]==2:
             yd_ = yd_[...,1]
         else:
@@ -199,6 +203,7 @@ if __name__=='__main__':
 
         with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}.pickle', 'wb') as ff:
             pickle.dump(Yd, ff)
+    import pdb;pdb.set_trace()
         
 """
 ids2=(C[:,1]<=55)&(C[:,-5]<=8.5)&(C[:,-4]<=7)&(C[:,4]==0)&(C[:,15]==0)&(C[:,20]==0)
