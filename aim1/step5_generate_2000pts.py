@@ -36,7 +36,7 @@ if __name__=='__main__':
     window_start_ids = []
     #spec = []
     #freq = []
-    for sid in tqdm(sids):
+    for si, sid in enumerate(tqdm(sids)):
         pmrn, Pobs_, D_, Ddose_, Dname, C_, Cname, Y_, ids = preprocess(sid, DATA_DIR, PK_K, W, drugs_tostudy, response_tostudy, outcome_tostudy)
         pmrns.append(pmrn)
         Pobs.append(Pobs_)
@@ -52,7 +52,7 @@ if __name__=='__main__':
     #sids = C[:,0].astype(str)
     C = C[:,1:].astype(float)
     Cname = Cname[1:]
-
+    
     # get cluster
     df_cluster = pd.read_csv('Cluster_2000pts_using_C_12clusters.csv')
     sids2 = list(df_cluster.Index)
@@ -101,23 +101,19 @@ if __name__=='__main__':
 
         start = 0
         for gi, g in enumerate(groupby(d)):
-            if gi==0:
-                j, k = g
-                ll = len(list(k))
-                if j==0:
-                    start = ll
-            else:
-                break
+            j, k = g
+            ll = len(list(k))
+            if j==0:
+                start = ll
+            break
 
         end = 0
         for gi, g in enumerate(groupby(d[::-1])):
-            if gi==0:
-                j, k = g
-                ll = len(list(k))
-                if j==0:
-                    end = ll
-            else:
-                break
+            j, k = g
+            ll = len(list(k))
+            if j==0:
+                end = ll
+            break
         end = len(d)-end
 
         Pobs[i] = Pobs[i][start:end]
@@ -139,6 +135,60 @@ if __name__=='__main__':
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     """
+    
+    ## clip NaN drug at the beginning or end
+    ## remove patients with NaN drug in the middle
+    exclude_ids = []
+    for i in range(len(sids)):
+        d = D[i].sum(axis=1)
+        nan_mask = np.isnan(d)
+        if np.sum(nan_mask)==0:
+            continue
+        
+        d[np.isnan(d)] = -999
+
+        start = 0
+        for gi, g in enumerate(groupby(d)):
+            j, k = g
+            ll = len(list(k))
+            if j==-999:
+                start = ll
+            break
+
+        end = 0
+        for gi, g in enumerate(groupby(d[::-1])):
+            j, k = g
+            ll = len(list(k))
+            if j==-999:
+                end = ll
+            break
+        end = len(d)-end
+        
+        cc = 0
+        for gi, g in enumerate(groupby(d)):
+            j, k = g
+            ll = len(list(k))
+            if j==-999 and cc>0 and cc+ll<len(d):
+                exclude_ids.append(i)
+                break
+            cc += ll
+
+        Pobs[i] = Pobs[i][start:end]
+        D[i] = D[i][start:end]
+        Ddose[i] = Ddose[i][start:end]
+        window_start_ids[i] = window_start_ids[i][start:end]
+
+    keep_ids = np.where([len(D[i])>=min_len and i not in exclude_ids for i in range(len(sids))])[0]
+    pmrns = [pmrns[i] for i in keep_ids]
+    sids = [sids[i] for i in keep_ids]
+    Pobs = [Pobs[i] for i in keep_ids]
+    D = [D[i] for i in keep_ids]
+    Ddose = [Ddose[i] for i in keep_ids]
+    Y = Y[keep_ids]
+    C = C[keep_ids]
+    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    window_start_ids = [window_start_ids[i] for i in keep_ids]
+    print('%d patients'%len(sids))
     
     # # remove subjects with long continuous NaN in Pobs
     thres = 0.3
@@ -197,7 +247,10 @@ if __name__=='__main__':
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     
-    import pdb;pdb.set_trace()
+    assert all([np.all(~np.isnan(x)) for x in D])
+    assert all([np.all(~np.isnan(x)) for x in Ddose])
+    #assert all([np.all(~np.isnan(Pobs)) for x in Pobs])
+    
     output_path = f'data_to_fit_CNNIIC_{response_tostudy}.pickle'
     with open(output_path, 'wb') as f:
         pickle.dump({'W':W, 'window_start_ids':window_start_ids,
