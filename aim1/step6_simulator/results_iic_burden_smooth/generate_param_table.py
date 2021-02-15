@@ -18,7 +18,7 @@ Pobs = Pobs[response_tostudy]
 model = sys.argv[1]#cauchy_expit_lognormal_drugoutside_ARMA
 AR_p = 2
 MA_q = 6
-maxiter = 100#0
+maxiter = 1000
 N = len(sids)
 Ndrug = len(Dname)
 with open(f'model_fit_{data_type}_{response_tostudy}_{model}{AR_p},{MA_q}_iter{maxiter}.pkl', 'rb') as ff:
