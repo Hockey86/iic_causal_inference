@@ -167,14 +167,14 @@ if __name__=='__main__':
     sids_no_iic = []
     for sid in tqdm(sids):
         save_path = os.path.join(output_dir, sid+'.mat')
-        res = {}#sio.loadmat(save_path)
+        res = {}
         
-        res = sio.loadmat(save_path)
+        ## get pseudoMRN
+        
         master_list_id = np.where(master_list.Index==sid)[0][0]
         pmrn = master_list.PseudoMRN.iloc[master_list_id]
         res['PseudoMRN'] = pmrn
-        sio.savemat(save_path, res)
-        continue
+        
         ## get label
         
         #human_label = pd.read_csv([x for x in human_label_paths if 'sid%04d'%int(sid[3:]) in x][0], header=None)[0].values
