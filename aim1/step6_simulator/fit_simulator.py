@@ -14,8 +14,8 @@ if __name__=='__main__':
 
     #data_type = 'humanIIC'
     data_type = 'CNNIIC'
-    response_tostudy = 'iic_burden_smooth'
-    #response_tostudy = 'spike_rate'
+    #response_tostudy = 'iic_burden_smooth'
+    response_tostudy = 'spike_rate'
     
     with open(f'../data_to_fit_{data_type}_iic_burden_smooth+spike_rate.pickle', 'rb') as f:
         res = pickle.load(f)
