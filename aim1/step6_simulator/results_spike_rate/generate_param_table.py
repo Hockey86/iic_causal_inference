@@ -9,10 +9,11 @@ data_type = 'CNNIIC'
 #response_tostudy = 'iic_burden_smooth'
 response_tostudy = 'spike_rate'
 
-with open(f'../../data_to_fit_{data_type}_{response_tostudy}.pickle', 'rb') as f:
+with open(f'../../data_to_fit_{data_type}_iic_burden_smooth+spike_rate.pickle', 'rb') as f:
     res = pickle.load(f)
 for k in res:
     exec('%s = res[\'%s\']'%(k,k))
+Pobs = Pobs[response_tostudy]
        
 model = sys.argv[1]#cauchy_expit_lognormal_drugoutside_ARMA
 AR_p = 2
@@ -20,7 +21,7 @@ MA_q = 6
 maxiter = 1000
 N = len(sids)
 Ndrug = len(Dname)
-with open('model_fit_%s_%s%d,%d_iter%d.pkl'%(data_type, model, AR_p, MA_q, maxiter), 'rb') as ff:
+with open(f'model_fit_{data_type}_{response_tostudy}_{model}{AR_p},{MA_q}_iter{maxiter}.pkl', 'rb') as ff:
     stan_model, df_params_, Ncluster = pickle.load(ff)
 
 for posterior_stat in ['mean', 'std']:
@@ -30,6 +31,10 @@ for posterior_stat in ['mean', 'std']:
         df_params = df_params_.std(axis=0)
 
     data = {'SID':sids, 'cluster':cluster}
+
+    # max D and max P
+    data['maxD'] = [x.max() for x in D]
+    data['maxE'] = [np.nanmax(x) for x in Pobs]
 
     # alpha0
     data['alpha0'] = [df_params['alpha0[%d]'%i] for i in range(1,N+1)]
