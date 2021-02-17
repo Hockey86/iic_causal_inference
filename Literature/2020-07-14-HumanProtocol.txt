@@ -1,0 +1,56 @@
+2020-07-14
+Sahar + Brandon "IIIC treatment protocol" 
+
+Two cases: 
+1. NCSE - nonconvulsive status epilepticus [ > 50% of a 30min epoch = sz/IIIC]
+2. NCS - nonconvulsive seizures [<50% of a 30 min epoch = sz/IIIC ]
+
+--------------------------------------------
+Suggested protocol for NCSE
+
+1. Minutes 5-10: 
+-Lorazepam (or diazepam or midazolam) bolus
+
+2. Minutes 10-30: if NCSE continues...
+-Bolus NSAED ("loading dose"), and prescribe NSAED to be given q8-12h
+-wait 60 min, if NCSE persists: 
+--increase dose of NSAED
+--Bolus NSAED #2 ("loading dose") and prescribe NSAED to be given q8-12h
+
+3. Minutes 60-90min: if NCSE continues: 
+-bolus SAED (anesthetic drug), titrate to achieve sz suppression or burst suppression (but see below)
+-increase NSAEDs to maximal doses
+(--Bolus NSAED #3 ("loading dose") and prescribe NSAED to be given q8-12h)
+
+--------------------------------------------
+Suggested protocol for NCS
+
+1. Minutes 5-10: 
+-Lorazepam (or diazepam or midazolam) bolus
+
+2. Minutes 10-30: if NCSE continues...
+-Bolus NSAED ("loading dose"), and prescribe NSAED to be given q8-12h
+-wait 60 min, if NCSE persists: 
+--increase dose of NSAED
+--Bolus NSAED #2 ("loading dose") and prescribe NSAED to be given q8-12h
+
+3. After 8h: if NCS continue
+--Bolus NSAED #3 ("loading dose") and prescribe NSAED to be given q8-12h
+
+--------------------------------------------
+NOTES/CONSTRAINTS: 
+
+1. Titration of SAEDs:
+--once started, continue x 24h (targeting sz suppression or burst suppression)
+--adjust infusion rate hourly as needed
+--after 24h taper over 12h (decreasing rate hourly until off)
+--if NCSE recurs, repeat 24h of anesthetics
+--repeat up to 3x (takes ~4.5 days)
+--do no exceed max dose [propofol 10mg/kg/h; mdz: 2mg/kg/h]
+
+2. Titration of NSAEDs:
+--can increase dose every 8h; increase if sz >2h after last dose
+--stop increasing when at max dose (up to 1 increase); we can assume there are 2 dose options for each drug
+
+
+
