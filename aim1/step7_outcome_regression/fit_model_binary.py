@@ -11,6 +11,9 @@ import pandas as pd
 from scipy.stats import spearmanr
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
+# explicitly require this experimental feature
+from sklearn.experimental import enable_hist_gradient_boosting  # noqa
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import make_scorer, roc_auc_score, cohen_kappa_score, f1_score, balanced_accuracy_score
 from sklearn.calibration import CalibratedClassifierCV
 from tqdm import tqdm
@@ -23,24 +26,24 @@ def get_perf(model_type, y, yp_int, yp):
     y = y[ids]
     yp_int = yp_int[ids]
     yp = yp[ids]
-    if model_type in ['lowess-logreg']:
-        perf = pd.Series(
-            data=[
-                np.mean(y==yp_int),
-                roc_auc_score(y,yp),
-                cohen_kappa_score(y, yp_int),
-                f1_score(y,yp_int, average='weighted'),
-                balanced_accuracy_score(y,yp_int),
-            ],
-            index=[
-                'accuracy',
-                'AUC',
-                'Cohen kappa',
-                'weighted F1 score',
-                'balanced accuracy',
-            ])
-    else:
-        raise ValueError('Unknown model_type:', model_type)
+    #if model_type in ['lowess-logreg']:
+    perf = pd.Series(
+        data=[
+            np.mean(y==yp_int),
+            roc_auc_score(y,yp),
+            cohen_kappa_score(y, yp_int),
+            f1_score(y,yp_int, average='weighted'),
+            balanced_accuracy_score(y,yp_int),
+        ],
+        index=[
+            'accuracy',
+            'AUC',
+            'Cohen kappa',
+            'weighted F1 score',
+            'balanced accuracy',
+        ])
+    #else:
+    #    raise ValueError('Unknown model_type:', model_type)
     return perf
 
 
@@ -102,6 +105,26 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                     penalty='l2', class_weight='balanced',
                     random_state=random_state)
             model = LOWESS(model, relative=False)
+        elif model_type=='rf':
+            model_params = {'n_estimators':[500,1000],
+                            'max_depth':[2,3,5],
+                            'min_samples_leaf':[10,20],
+                            'ccp_alpha':[0.0001, 0.001,0.01],
+                            'impute_KNN_K':[5,10,50],
+                            }
+            metric = 'f1_weighted'
+            model = MyRandomForestClassifier(n_jobs=1, random_state=random_state, class_weight='balanced')
+        elif model_type=='gbt':
+            model_params = {'max_depth':[3,5,10],
+                            'l2_regularization':[0.01,0.1,1],
+                            }
+            metric = 'f1_weighted'
+            bound2cst = {(None,None):0, (None,0):-1, (0,None):1}
+            monotonic_cst = [0 if binary_indicator[bi] else bound2cst[bounds[bi]] for bi in range(len(bounds))]
+            model = HistGradientBoostingClassifier(
+                    max_iter=1000, categorical_features=binary_indicator,
+                    monotonic_cst=monotonic_cst, early_stopping=True,
+                    random_state=random_state)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -171,6 +194,13 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                     penalty='l2', class_weight='balanced',
                     random_state=random_state)
             model = LOWESS(model, relative=False)
+        elif model_type=='rf':
+            model = MyRandomForestClassifier(n_jobs=n_jobs, random_state=random_state, class_weight='balanced')
+        elif model_type=='gbt':
+            model = HistGradientBoostingClassifier(
+                    max_iter=1000, categorical_features=binary_indicator,
+                    monotonic_cst=monotonic_cst, early_stopping=True,
+                    random_state=random_state)
         else:
             raise ValueError('Unknown model_type:', model_type)
                         
@@ -181,6 +211,7 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                 exec(f'model.{pp[0]}.{pp[1]} = {val}')  # TODO assumes two levels
             else:
                 exec(f'model.{p} = {val}')
+            print(p, val)
         model.fit(X, y)
             
         # calibrate
@@ -258,9 +289,6 @@ if __name__=='__main__':
         'Primary systemic dx Sepsis/Shock',
         'neuro_dx_Seizures/status epilepticus',
         'prim_dx_Respiratory disorders',
-        #'burden_iic_burden_smooth',
-        #'burden_spike_rate',
-        #'burden_iic burden x spike rate',
         ]
     neg_Xnames = [
         'iGCS-Total',
@@ -268,7 +296,7 @@ if __name__=='__main__':
         ]
     bounds = []
     for xn in Xnames:
-        if xn in pos_Xnames:
+        if xn in pos_Xnames or xn.startswith('burden_'):  # this includes drugs and IIC and spike rate
             bounds.append((0,None))
         elif xn in neg_Xnames:
             bounds.append((None,0))
@@ -340,6 +368,7 @@ if __name__=='__main__':
         df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
         df_coef.to_csv(f'coef_{model_type}_{responses_txt}_{input_type}.csv', index=False)
     
+    import pdb;pdb.set_trace()
     y_yps = []
     for bti, y_yp in enumerate(y_yp_bt):
         for cvi, y_yp_cv in enumerate(y_yp):
