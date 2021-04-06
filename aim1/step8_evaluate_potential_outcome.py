@@ -66,7 +66,8 @@ def evaluate_one_patient(i, D, Dname, Dmax, Pobs, C, cluster, responses, simulat
     d = [np.zeros(ND)]*(AR_p-1)
     e = {r:[np.tile(Pobs[r][i][:AR_p], (500,1))] for r in responses}
     A = {}
-    for t in range(AR_p, T):#tqdm()
+    #for t in tqdm(range(AR_p, T)):
+    for t in range(AR_p, T):
         # Dt = f(E1:t, D1:t-1, C)
         d.append(drug_regime_func([e[r] for r in responses], d, C[i], Dname, i, t))
         
@@ -75,7 +76,7 @@ def evaluate_one_patient(i, D, Dname, Dmax, Pobs, C, cluster, responses, simulat
             if t==AR_p:
                 A[r] = logit(np.clip(Pobs[r][i][:AR_p], 1e-6, 1-1e-6)).reshape(1,-1)
             Esim, A[r] = simulator[r].predict(
-                    [np.r_[np.array(d), np.zeros((1,ND))]],
+                    [np.r_[np.array(d)/Dmax, np.zeros((1,ND))]],
                     cluster[[i]], sid_index=[i],
                     Astart=A[r], return_A=True,
                     verbose=False)
@@ -110,7 +111,7 @@ def evaluate_one_patient(i, D, Dname, Dmax, Pobs, C, cluster, responses, simulat
     #X = np.c_[Xdrug, Xsim, XC]
     yp = outcome_model.predict_proba(X)
     
-    return yp
+    return yp, d, e, X
     
     
 
@@ -125,7 +126,7 @@ if __name__=='__main__':
     MA_q = 6
     max_iter = 1000
     Nbt = 0
-    n_jobs = 8
+    n_jobs = 12
     random_state = 2020
     
     responses_txt = '+'.join(responses)
@@ -161,27 +162,31 @@ if __name__=='__main__':
     ## define drug regimes to evaluate
     PK_K = get_pk_k()
     drug_regimes = {
-            'always_zero':drug_from_constant(0),
-            'always_propofol_1':drug_from_constant(1, drug='propofol'),
-            'always_propofol_5':drug_from_constant(5, drug='propofol'),
-            'always_propofol_10':drug_from_constant(10, drug='propofol'),
-            'always_propofol_20':drug_from_constant(20, drug='propofol'),
-            'always_propofol_30':drug_from_constant(30, drug='propofol'),
-            'always_propofol_40':drug_from_constant(40, drug='propofol'),
-            'always_propofol_50':drug_from_constant(50, drug='propofol'),
-            'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
-            'actual_drug':drug_from_concentration(D),
-            'actual_drugx2':drug_from_concentration([d*2 for d in D]),
-            'actual_drugx4':drug_from_concentration([d*4 for d in D]),
-            'actual_drugx6':drug_from_concentration([d*6 for d in D]),
-            'actual_drugx8':drug_from_concentration([d*8 for d in D]),
-            'actual_drugx10':drug_from_concentration([d*10 for d in D]),
-            #'shuffle_drug':drug_from_dose([d for d in Ddose], PK_K, shuffle=True, random_state=random_state),
+        'always_zero':drug_from_constant(0),
+        'always_propofol_0.1':drug_from_constant(0.1, drug='propofol'),
+        'always_propofol_0.5':drug_from_constant(0.5, drug='propofol'),
+        'always_propofol_1':drug_from_constant(1, drug='propofol'),
+        'always_propofol_2':drug_from_constant(2, drug='propofol'),
+        'always_propofol_3':drug_from_constant(3, drug='propofol'),
+        'actual_drug':drug_from_concentration(D),
     }
+    """
+    'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
+    'actual_drug':drug_from_concentration(D),
+    'actual_drugx2':drug_from_concentration([d*2 for d in D]),
+    'actual_drugx4':drug_from_concentration([d*4 for d in D]),
+    'actual_drugx6':drug_from_concentration([d*6 for d in D]),
+    'actual_drugx8':drug_from_concentration([d*8 for d in D]),
+    'actual_drugx10':drug_from_concentration([d*10 for d in D]),
+    #'shuffle_drug':drug_from_dose([d for d in Ddose], PK_K, shuffle=True, random_state=random_state),
+    """
     
     ## for each drug regime, evaluate drug regime
     
     Yd = {}
+    Ds = {}
+    Es = {}
+    Xs = {}
     for regime_name, drug_regime_func in drug_regimes.items():
         print(regime_name)
         
@@ -191,18 +196,21 @@ if __name__=='__main__':
                     i, D, Dname, Dmax, Pobs, C, cluster,
                     responses, simulator, outcome_model,
                     drug_regime_func, AR_p, W) for i in tqdm(range(N)))
-        yd_ = np.array(res)
+        Ds[regime_name] = [x[1] for x in res]
+        Es[regime_name] = [x[2] for x in res]
+        Xs[regime_name] = np.array([x[3] for x in res])
+        yd_ = np.array([x[0] for x in res])
         if yd_.shape[-1]==2:
-            yd_ = yd_[...,1]
+            yd_ = yd_[...,1]  # binary classification
         else:
-            yd_ = yd_[...,4:].sum(axis=-1)
+            yd_ = yd_[...,4:].sum(axis=-1)  # ordinal --> binary
         Yd[regime_name] = yd_#.mean(axis=1)
         mean_ = np.nanmean(np.nanmean(Yd[regime_name], axis=0))
         lb_, ub_ = np.nanpercentile(np.nanmean(Yd[regime_name], axis=0), (2.5,97.5))
         print(f'Y({regime_name}) = {mean_:.4f} [{lb_:.4f} -- {ub_:.4f}]')
 
         with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}.pickle', 'wb') as ff:
-            pickle.dump(Yd, ff)
+            pickle.dump([Yd, Ds, Es, Xs], ff)
     import pdb;pdb.set_trace()
         
 """
