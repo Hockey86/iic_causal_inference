@@ -19,6 +19,9 @@ from sklearn.calibration import CalibratedClassifierCV
 from tqdm import tqdm
 from myclasses import *
 from fit_model_ordinal import generate_outcome_X, stratified_group_k_fold
+SIMULATOR_PATH = '../step6_simulator'
+sys.path.insert(0, SIMULATOR_PATH)
+from simulator import *
 
 
 def get_perf(model_type, y, yp_int, yp):
@@ -106,8 +109,8 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                     random_state=random_state)
             model = LOWESS(model, relative=False)
         elif model_type=='rf':
-            model_params = {'n_estimators':[500,1000],
-                            'max_depth':[2,3,5],
+            model_params = {'n_estimators':[100,500,1000],
+                            'max_depth':[2,3],
                             'min_samples_leaf':[10,20],
                             'ccp_alpha':[0.0001, 0.001,0.01],
                             'impute_KNN_K':[5,10,50],
@@ -232,9 +235,13 @@ if __name__=='__main__':
     
     responses = ['iic_burden_smooth', 'spike_rate']
     responses_txt = '+'.join(responses)
+    simulator_model_type = 'cauchy_expit_lognormal_drugoutside_ARMA'
     
     Nbt = 0
     Ncv = 5
+    AR_p = 2
+    MA_q = 6
+    max_iter = 1000
     model_type = str(sys.argv[2])
     simulator_type = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
     n_jobs = 12
@@ -255,7 +262,23 @@ if __name__=='__main__':
     Dmax = np.array(Dmax)
     #for i in range(len(D)):
     #    D[i] = D[i]/Dmax
-    X, Xnames = generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W)
+
+    # load simulator and run simulation
+    simulator = {}
+    Psim = {}
+    for r in responses:
+        simulator[r] = Simulator(
+            os.path.join(SIMULATOR_PATH, f'model_{simulator_model_type}.stan'),
+            W, T0=[AR_p, MA_q], random_state=random_state)
+        model_path = os.path.join('/data/HaoqiSun', f'model_fit_{data_type}_{r}_{simulator_model_type}{AR_p},{MA_q}_iter{max_iter}.pkl')
+        simulator[r].load_model(model_path)
+
+        Pstart = np.array([Pobs[r][i][:AR_p] for i in range(len(Pobs[r]))])
+        Psim[r] = simulator[r].predict([x/Dmax for x in D], cluster, Astart=logit(np.clip(Pstart, 1e-6, 1-1e-6)))
+        Psim[r] = [x.mean(axis=0) for x in Psim[r]]
+
+    #X, Xnames = generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W)
+    X, Xnames = generate_outcome_X(Psim, D, Dmax, Dname, input_type, responses, W)
     X = np.c_[X, C]
     Xnames.extend(Cname)
     binary_indicator = np.array([set(X[:,i][~np.isnan(X[:,i])])=={0,1} for i in range(X.shape[1])])
@@ -368,7 +391,6 @@ if __name__=='__main__':
         df_coef = df_coef.sort_values('coef', ascending=False).reset_index(drop=True)
         df_coef.to_csv(f'coef_{model_type}_{responses_txt}_{input_type}.csv', index=False)
     
-    import pdb;pdb.set_trace()
     y_yps = []
     for bti, y_yp in enumerate(y_yp_bt):
         for cvi, y_yp_cv in enumerate(y_yp):

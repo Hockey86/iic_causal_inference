@@ -293,38 +293,38 @@ def generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W, sids=None
             else:
                 Pobs_[responses_[-1]] = [Pobs['iic_burden_smooth'][i]*Pobs['spike_rate'][i] for i in range(len(D))]
         for r in responses_:
-            sim_name.extend([f'burden_{r}'])#f'mean_{r}',
+            sim_name.extend([f'mean_{r}', f'burden_{r}'])
             
         if same_length_vectorizable:
             Xsim = []
             for r in responses_:
-                meanP = np.nanmean(Pobs_[r], axis=1)
+                this_Pobs = Pobs_[r][:,3:]  # remove some initial period
+                meanP = np.nanmean(this_Pobs, axis=1)
                 meanP[np.isnan(meanP)] = 0
                 
-                burdenP = np.array_split(Pobs_[r], Pobs_[r].shape[1]//Nwindow_1h, axis=1)
+                burdenP = np.array_split(this_Pobs, this_Pobs.shape[1]//Nwindow_1h, axis=1)
                 burdenP = np.nanmax([np.nanmean(x, axis=1) for x in burdenP], axis=0)
                 burdenP[np.isnan(burdenP)] = 0
                 
-                Xsim.append(np.c_[burdenP]) #, meanP
+                Xsim.append(np.c_[meanP, burdenP])
             Xsim = np.concatenate(Xsim, axis=1)
                 
         else:
             Xsim = []
             for i in range(len(D)):
-                Pi = {r:Pobs_[r][i] for r in responses_}
+                Pi = {r:Pobs_[r][i][3:] for r in responses_}  # remove some initial period
                     
                 Xsim.append([])
                 for r in responses_:
                     meanP = np.nanmean(Pi[r])
                     if np.isnan(meanP):
                         meanP = 0
-                        
                     # Payne, E.T., Zhao, X.Y., Frndova, H., McBain, K., Sharma, R., Hutchison, J.S. and Hahn, C.D., 2014. Seizure burden is independently associated with short term outcome in critically ill children. Brain, 137(5), pp.1429-1438.
                     burdenP = np.array_split(Pi[r], len(Pi[r])//Nwindow_1h)
                     burdenP = np.nanmax([np.nanmean(x) for x in burdenP])
                     if np.isnan(burdenP):
                         burdenP = 0
-                    Xsim[-1].extend( [burdenP] )#meanP, 
+                    Xsim[-1].extend( [meanP, burdenP] )
             Xsim = np.array(Xsim)
         
     #Dname = ['max_dose_'+x for x in Dname] + \

@@ -5,15 +5,16 @@ import pandas as pd
 
 
 def get_pk_k():
+    # after Brandon's correction
     halflife = pd.DataFrame({
-        'lacosamide':[13],
-        'levetiracetam':[6],
-        'midazolam':[1.5],
-        'pentobarbital':[15],
-        'phenobarbital':[53],
-        'phenytoin':[22],
-        'propofol':[1.5],
-        'valproate':[8]
+        'lacosamide':[66],     #  11h, (5-15h)
+        'levetiracetam':[48],  #  8h
+        'midazolam':[15],      #  2.5h
+        'pentobarbital':[195], # 32.5h (15-50h)
+        'phenobarbital':[474], # 79h
+        'phenytoin':[147],     # 24.5h (7-42h)
+        'propofol':[2],        # 20minutes (3-12h after long time) (needs 3 differential equations)
+        'valproate':[96]       # 16h
         },index=['t1/2'])
     halflife = halflife.append(np.log(2) / halflife.rename(index={'t1/2':'k'}))
     PK_K = halflife.loc['k']

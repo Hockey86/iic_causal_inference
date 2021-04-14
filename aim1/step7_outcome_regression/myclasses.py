@@ -229,11 +229,21 @@ class LTRPairwise(BaseEstimator, ClassifierMixin):
 
 
 class MyRandomForestClassifier(RandomForestClassifier):
-    def __init__(self, n_estimators=100, criterion='gini', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=None, random_state=None, verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0, max_samples=None, impute_KNN_K=10):
+    def __init__(self, n_estimators=100, criterion='gini', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=None, random_state=None, verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0, max_samples=None, impute_KNN_K=10, binary_indicator=None):
         super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features, max_leaf_nodes=max_leaf_nodes, min_impurity_decrease=min_impurity_decrease, min_impurity_split=min_impurity_split, bootstrap=bootstrap, oob_score=oob_score, n_jobs=n_jobs, random_state=random_state, verbose=verbose, warm_start=warm_start, class_weight=class_weight, ccp_alpha=ccp_alpha, max_samples=max_samples)
         self.impute_KNN_K = impute_KNN_K
+        self.binary_indicator = binary_indicator
 
     def fit(self, X, y, sample_weight=None):
+        # standardize
+        if self.binary_indicator is None:
+            self.binary_indicator = np.zeros(X.shape[1])==1
+        self.Xmean = np.nanmean(X[:,~self.binary_indicator], axis=0)
+        self.Xstd = np.nanstd(X[:,~self.binary_indicator], axis=0)
+        self.Xmean[np.isnan(self.Xmean)] = 0
+        self.Xstd[np.isnan(self.Xstd)|(self.Xstd==0)] = 1
+        X[:,~self.binary_indicator] = (X[:,~self.binary_indicator]-self.Xmean)/self.Xstd
+
         # impute missing value
         self.imputer = KNNImputer(n_neighbors=self.impute_KNN_K).fit(X)
         if np.any(np.isnan(X)):
@@ -242,13 +252,23 @@ class MyRandomForestClassifier(RandomForestClassifier):
         return self
 
     def predict(self, X):
+        X = np.array(X)
+        # standardize
+        X[:,~self.binary_indicator] = (X[:,~self.binary_indicator]-self.Xmean)/self.Xstd
+        # impute missing value
         if np.any(np.isnan(X)):
             X = self.imputer.transform(X)
+            X[:,self.binary_indicator] = (X[:,self.binary_indicator]>0.5).astype(float)
         return super().predict(X)
 
     def predict_proba(self, X):
+        X = np.array(X)
+        # standardize
+        X[:,~self.binary_indicator] = (X[:,~self.binary_indicator]-self.Xmean)/self.Xstd
+        # impute missing value
         if np.any(np.isnan(X)):
             X = self.imputer.transform(X)
+            X[:,self.binary_indicator] = (X[:,self.binary_indicator]>0.5).astype(float)
         return super().predict_proba(X)
 
 
