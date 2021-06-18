@@ -5,23 +5,13 @@ import numpy as np
 from scipy.special import logit
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from myfunctions import get_pk_k, drug_concentration
+from myfunctions import preprocess, get_pk_k
 SIMULATOR_PATH = 'step6_simulator'
 OUTCOME_PREDICTION_PATH = 'step7_outcome_regression'
 sys.path.insert(0, SIMULATOR_PATH)
 from simulator import *
 sys.path.insert(0, OUTCOME_PREDICTION_PATH)
 from fit_model_ordinal import generate_outcome_X
-
-
-def generate_dose(dose_array, interval, lengths):
-    res = []
-    for i in range(len(lengths)):
-        d_ = np.zeros((lengths[i], len(dose_array)))
-        ids = np.arange(0, lengths[i], interval)
-        d_[ids] = dose_array
-        res.append(d_)
-    return res
 
 
 def drug_from_constant(val, drug=None):
@@ -53,16 +43,20 @@ def drug_from_concentration(data):
     return func
 
 
-def drug_from_dose(dose_, PK_K):
-    concentration = [drug_concentration(dd.T, PK_K).T for dd in dose_]
+def drug_from_dose(dose_, PK_K, shuffle=False, random_state=None):
     def func(Ps, D, C, Dname, sid, t):
-        res = concentration[sid][t]
+        dose = dose_[sid][t]
+        if shuffle:
+            # generate list of drug on/off times, dose, and type (infusion/bolus)
+            # shuffle
+            np.random.seed(random_state)
+            # generate dose time series
+            # generate concentration time_series
         return res
     return func
 
 
-def drug_from_policy():
-    pass
+#def drug_from_policy():
 
 
 def evaluate_one_patient(i, D, Dname, Dmax, Pobs, C, cluster, responses, simulator, outcome_model, drug_regime_func, AR_p, W):
@@ -132,7 +126,7 @@ if __name__=='__main__':
     MA_q = 6
     max_iter = 1000
     Nbt = 0
-    n_jobs = 5
+    n_jobs = 12
     random_state = 2020
     
     responses_txt = '+'.join(responses)
@@ -166,22 +160,26 @@ if __name__=='__main__':
     outcome_model = res['model']
     
     ## define drug regimes to evaluate
-    lengths = [len(x) for x in Ddose]
-    keppra_8h_30 = generate_dose([0,30,0,0,0,0,0], 8*3600//600, lengths)
-    keppra_8h_60 = generate_dose([0,60,0,0,0,0,0], 8*3600//600, lengths)
-    keppra_8h_90 = generate_dose([0,90,0,0,0,0,0], 8*3600//600, lengths)
-    PK_K = np.array(get_pk_k()[Dname].values.astype(float))
+    PK_K = get_pk_k()
     drug_regimes = {
         'always_zero':drug_from_constant(0),
-        'keppra_8h_30':drug_from_dose(keppra_8h_30, PK_K),
-        'keppra_8h_60':drug_from_dose(keppra_8h_60, PK_K),
-        'keppra_8h_90':drug_from_dose(keppra_8h_90, PK_K),
+        'always_propofol_0.1':drug_from_constant(0.1, drug='propofol'),
+        'always_propofol_0.5':drug_from_constant(0.5, drug='propofol'),
         'always_propofol_1':drug_from_constant(1, drug='propofol'),
-        'always_propofol_5':drug_from_constant(5, drug='propofol'),
-        'always_propofol_10':drug_from_constant(10, drug='propofol'),
+        'always_propofol_2':drug_from_constant(2, drug='propofol'),
+        'always_propofol_3':drug_from_constant(3, drug='propofol'),
         'actual_drug':drug_from_concentration(D),
     }
+    """
+    'actual_drugx0.5':drug_from_concentration([d*0.5 for d in D]),
+    'actual_drug':drug_from_concentration(D),
+    'actual_drugx2':drug_from_concentration([d*2 for d in D]),
+    'actual_drugx4':drug_from_concentration([d*4 for d in D]),
+    'actual_drugx6':drug_from_concentration([d*6 for d in D]),
+    'actual_drugx8':drug_from_concentration([d*8 for d in D]),
+    'actual_drugx10':drug_from_concentration([d*10 for d in D]),
     #'shuffle_drug':drug_from_dose([d for d in Ddose], PK_K, shuffle=True, random_state=random_state),
+    """
     
     ## for each drug regime, evaluate drug regime
     
@@ -211,7 +209,7 @@ if __name__=='__main__':
         lb_, ub_ = np.nanpercentile(np.nanmean(Yd[regime_name], axis=0), (2.5,97.5))
         print(f'Y({regime_name}) = {mean_:.4f} [{lb_:.4f} -- {ub_:.4f}]')
 
-        with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}{AR_p},{MA_q}.pickle', 'wb') as ff:
+        with open(f'res_evaluate_Yd_{outcome_model_type}_{simulator_model_type}.pickle', 'wb') as ff:
             pickle.dump([Yd, Ds, Es, Xs], ff)
     import pdb;pdb.set_trace()
         

@@ -14,14 +14,12 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 # explicitly require this experimental feature
 from sklearn.experimental import enable_hist_gradient_boosting  # noqa
 from sklearn.ensemble import HistGradientBoostingClassifier
+#from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import make_scorer, roc_auc_score, cohen_kappa_score, f1_score, balanced_accuracy_score
 from sklearn.calibration import CalibratedClassifierCV
 from tqdm import tqdm
 from myclasses import *
 from fit_model_ordinal import generate_outcome_X, stratified_group_k_fold
-SIMULATOR_PATH = '../step6_simulator'
-sys.path.insert(0, SIMULATOR_PATH)
-from simulator import *
 
 
 def get_perf(model_type, y, yp_int, yp):
@@ -117,8 +115,19 @@ def fit_model(X, y, sids, cv_split_, binary_indicator, bounds, model_type='logre
                             }
             metric = 'f1_weighted'
             model = MyRandomForestClassifier(n_jobs=1, random_state=random_state, class_weight='balanced')
+            """
         elif model_type=='gbt':
-            model_params = {'max_depth':[3,5,10],
+            model_params = {'n_estimators':[100,500,1000],
+                            'max_depth':[2,3],
+                            'min_samples_leaf':[10,20],
+                            'ccp_alpha':[0.0001, 0.001,0.01],
+                            'impute_KNN_K':[5,10,50],
+                            }
+            metric = 'f1_weighted'
+            model = GradientBoostingClassifier(random_state=random_state)
+            """
+        elif model_type=='gbt':
+            model_params = {'max_depth':[3,5],
                             'l2_regularization':[0.01,0.1,1],
                             }
             metric = 'f1_weighted'
@@ -235,50 +244,50 @@ if __name__=='__main__':
     
     responses = ['iic_burden_smooth', 'spike_rate']
     responses_txt = '+'.join(responses)
-    simulator_model_type = 'cauchy_expit_lognormal_drugoutside_ARMA'
+    simulator_model_type = 'cauchy_expit_brandon_ARMA'
+    AR_p = 2
+    MA_q = 6
     
     Nbt = 0
     Ncv = 5
-    AR_p = 2
-    MA_q = 6
     max_iter = 1000
     model_type = str(sys.argv[2])
-    simulator_type = 'cauchy_expit_lognormal_drugoutside_ARMA2,6'
     n_jobs = 12
     random_state = 2020
     
     with open(f'../data_to_fit_{data_type}_{responses_txt}.pickle','rb') as ff:
         res = pickle.load(ff)
     for k in res:
-        exec(f'{k} = res[\'{k}\']')
+        exec(f'{k} = res[\'{k}\']')  # Ddose is not normalized
     y = Y.astype(int)
-    
-    # standardize drugs
-    Dmax = []
-    for di in range(D[0].shape[-1]):
-        dd = np.concatenate([x[:,di] for x in D])
-        dd[dd==0] = np.nan
-        Dmax.append(np.nanpercentile(dd,95))
-    Dmax = np.array(Dmax)
-    #for i in range(len(D)):
-    #    D[i] = D[i]/Dmax
 
-    # load simulator and run simulation
-    simulator = {}
+    df_corr_iic = pd.read_csv(f'../step6_simulator_PKPD/figures/correlations_{data_type}_iic_burden_smooth_{simulator_model_type}.csv')
+    df_corr_spike = pd.read_csv(f'../step6_simulator_PKPD/figures/correlations_{data_type}_spike_rate_{simulator_model_type}.csv')
+    df_corr_iic = df_corr_iic.sort_values('SID', ignore_index=True)
+    df_corr_spike = df_corr_spike.sort_values('SID', ignore_index=True)
+    assert np.all(df_corr_iic.SID==df_corr_spike.SID)
+    good_sids = list(df_corr_iic.SID[(df_corr_iic['corr']>0.1)&(df_corr_spike['corr']>0.1)])
+    ids = np.where(np.in1d(sids, good_sids))[0]
+    Ddose = [Ddose[i] for i in ids]
+    Pobs = {k:[v[i] for i in ids] for k,v in Pobs.items()}
+    C = C[ids]
+    y = y[ids]
+    cluster = cluster[ids]
+    pseudoMRNs = pseudoMRNs[ids]
+    all_sids = np.array(sids)
+    sids = sids[ids]
+    
+    # load simulation results
     Psim = {}
     for r in responses:
-        simulator[r] = Simulator(
-            os.path.join(SIMULATOR_PATH, f'model_{simulator_model_type}.stan'),
-            W, T0=[AR_p, MA_q], random_state=random_state)
-        model_path = os.path.join('/data/HaoqiSun', f'model_fit_{data_type}_{r}_{simulator_model_type}{AR_p},{MA_q}_iter{max_iter}.pkl')
-        simulator[r].load_model(model_path)
+        with open(f'../step6_simulator_PKPD/results_{r}/results_{data_type}_{r}_{simulator_model_type}{AR_p},{MA_q}_iter{max_iter}.pickle', 'rb') as ff:
+            res = pickle.load(ff)
+        assert np.all(res['sids']==all_sids)
+        Ddose_max = res['Ddose_max']
+        Psim[r] = [x.mean(axis=0) for xi, x in enumerate(res['Psim']) if res['sids'][xi] in good_sids]
 
-        Pstart = np.array([Pobs[r][i][:AR_p] for i in range(len(Pobs[r]))])
-        Psim[r] = simulator[r].predict([x/Dmax for x in D], cluster, Astart=logit(np.clip(Pstart, 1e-6, 1-1e-6)))
-        Psim[r] = [x.mean(axis=0) for x in Psim[r]]
-
-    #X, Xnames = generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W)
-    X, Xnames = generate_outcome_X(Psim, D, Dmax, Dname, input_type, responses, W)
+    #X, Xnames = generate_outcome_X(Pobs, Ddose, Ddose_max, Dname, input_type, responses, W)
+    X, Xnames = generate_outcome_X(Psim, Ddose, Ddose_max, Dname, input_type, responses, W)
     X = np.c_[X, C]
     Xnames.extend(Cname)
     binary_indicator = np.array([set(X[:,i][~np.isnan(X[:,i])])=={0,1} for i in range(X.shape[1])])
@@ -319,20 +328,21 @@ if __name__=='__main__':
         ]
     bounds = []
     for xn in Xnames:
-        if xn in pos_Xnames or xn.startswith('burden_'):  # this includes drugs and IIC and spike rate
+        if xn in pos_Xnames or xn.startswith('burden_') or xn.startswith('mean_'):  # this includes drugs and IIC and spike rate
             bounds.append((0,None))
         elif xn in neg_Xnames:
             bounds.append((None,0))
         else:
             bounds.append((None, None))
+    print(Xnames)
     
     # generate CV split
     cv_split_path = f'cv_split_Ncv{Ncv}_random_state{random_state}_{responses_txt}.csv'
-    if not os.path.exists(cv_split_path):
-        cv_split = np.zeros(len(X))
-        for cvi, (_, teid) in enumerate(stratified_group_k_fold(X, y, pseudoMRNs, Ncv, seed=random_state)):
-            cv_split[teid] = cvi
-        pd.DataFrame(data={'SID':sids, 'PseudoMRN':pseudoMRNs, 'y':y, 'CV':cv_split}).to_csv(cv_split_path, index=False)
+    #if not os.path.exists(cv_split_path):
+    cv_split = np.zeros(len(X))
+    for cvi, (_, teid) in enumerate(stratified_group_k_fold(X, y, pseudoMRNs, Ncv, seed=random_state)):
+        cv_split[teid] = cvi
+    pd.DataFrame(data={'SID':sids, 'PseudoMRN':pseudoMRNs, 'y':y, 'CV':cv_split}).to_csv(cv_split_path, index=False)
     df_cv = pd.read_csv(cv_split_path)
     assert [len(set(df_cv.PseudoMRN[df_cv.CV==k])&set(df_cv.PseudoMRN[df_cv.CV!=k])) for k in range(Ncv)] == [0]*Ncv
     assert [len(set(df_cv.SID[df_cv.CV==k])&set(df_cv.SID[df_cv.CV!=k])) for k in range(Ncv)] == [0]*Ncv
@@ -408,7 +418,7 @@ if __name__=='__main__':
              'params':params,
              'model':final_model,
              'Xnames':Xnames,
-             'Dmax':Dmax,}
+             'Ddose_max':Ddose_max,}
     if model_type=='logreg':
         res['coefs_bt'] = coefs_bt
     with open(f'results_{model_type}_Nbt{Nbt}_{responses_txt}_{input_type}.pickle', 'wb') as ff:
