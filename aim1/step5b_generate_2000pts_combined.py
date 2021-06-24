@@ -52,6 +52,7 @@ def read_data(folder, data_type, responses):
     # The sixth report of the Joint National Committee on prevention, detection, evaluation, and treatment of high blood pressure. [Arch Intern Med. 1997]
     C = data['C']
     Cname = data['Cname']
+    """
     MAP = C[:,Cname.index('systolic BP')]/3+C[:,Cname.index('diastolic BP')]/3*2
     C = np.c_[C, MAP]
     Cname.append('mean arterial pressure')
@@ -64,6 +65,7 @@ def read_data(folder, data_type, responses):
     C = C[:,~np.in1d(Cname, remove_names)]
     for x in remove_names:
         Cname.remove(x)
+    """
     
     # remove patients with missing outcome
     ids = np.where(~np.isnan(data['Y']))[0]
@@ -91,6 +93,7 @@ if __name__=='__main__':
     
     responses2 = '+'.join(responses)
     output_path = f'data_to_fit_CNNIIC_{responses2}.pickle'
+    print(f'{len(sids)} patients')
     with open(output_path, 'wb') as f:
         pickle.dump({
             'W':W, 'window_start_ids':window_start_ids,

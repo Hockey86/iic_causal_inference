@@ -5,7 +5,6 @@ import pandas as pd
 
 
 def get_pk_k():
-    # after Brandon's correction
     halflife = pd.DataFrame({
         'lacosamide':[66],     #  11h, (5-15h)
         'levetiracetam':[48],  #  8h
@@ -96,7 +95,7 @@ def preprocess(sid, data_dir, PK_K, W, drugs_tostudy, response_tostudy, outcome_
     Ddose = Ddose.T
 
     #cov_tostudy = ['Age']
-    C = pd.read_csv(os.path.join(data_dir, 'covariates.csv'))
+    C = pd.read_csv(os.path.join(data_dir, 'covariates-to-be-used.csv'))
     Cname = list(C.columns)
     C = C[C.Index==sid].values[0]#[cov_tostudy]
     

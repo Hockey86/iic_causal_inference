@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import os
 import numpy as np
 import pandas as pd
@@ -40,19 +41,29 @@ sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
 #output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output'
 output_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
        
-master_list = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019_HaoqiCorrected.csv')
+all_covs = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt/covariates-full.csv')
 
-all_covs = master_list.copy()
+# only keep covairates to be matched (labeled by Brandon)
+df_keep = pd.read_excel('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt/covariates_to_matched.xlsx')
+keep_names = list(df_keep.Index[df_keep.match_on==1])
+print(all_covs.shape[1]-1, 'features')
+all_covs = all_covs[['Index']+keep_names]
+print(all_covs.shape[1]-1, 'features')
+
+# normalize column names
 all_covs.columns = all_covs.columns.str.replace('[nN]o\s*=\s*0\s*,*\s* [yY]es\s*=\s*1','').str.strip()
 all_covs = all_covs.rename(columns={'Final Neuro  Dx    ischemic stroke =1  hemorrhagic stroke=2  SAH=3  SDH=4   SDH+other TBI (including SAH)=5 Other TBI (including SAH)=6  Seizures/status epilepticus=7  Brain tumor/primary or mets=8  CNS infection/inflammation=9   Hypoxic ischemic encephalopathy/Anoxic brain injury=10   Toxic metabolic encephalopathy=11  Other neurosurgical (non tumor/trauma) (eg EVD/VPS etc)=12  Primary psychiatric disorder=13  Other structural-degenerative diseases=18  Spells=19':'Final Neuro  Dx',
 'Primary systemic Dx  none=0  Respiratory disorders=1 cardiovascular disorders=2 Renal failure=3 Liver disorders=4 Gastrointestinal non-hemorrhagic=5 Genitourinary=6 Systemic hemorrhage=7 Endocrine emergency=8 Non head trauma (including spine)=9 Malignancy (solid tumors/hematologic)=10 Other post operative (eg CT surgery, transplant)=11 Primary hematological disorder=12  Immunological=13 Dermatological/Musculoskeletal=14':'Primary systemic Dx',
 'Sz Semiology,none 0,  generalized=1 focal motor/simple partial/ complex partial = 2':'Sz Semiology1',
 'marrital status  unmarried (if the pt was divorced or is widow is still in this category)=0 married=1':'marrital',
 'iGCS                          actual scores':'iGCS actual scores'})
+
+"""
 # convert midline shift to 0/1
 midline = np.zeros(len(all_covs)).astype(int)
 midline[~pd.isna(all_covs['Midline shift with any reason ( Document Date)'])] = 1
 all_covs['Midline shift with any reason ( Document Date)'] = midline
+"""
 
 # convert M to 1, F to 0
 sex = np.zeros(len(all_covs)).astype(int)
@@ -68,121 +79,143 @@ prim_id2diag = {0:'prim_dx_none', 1:'prim_dx_Respiratory disorders', 2:'prim_dx_
 prim_diagnosis_onehot = convert_to_onehot(all_covs['Primary systemic Dx'], prim_id2diag)
 
 # convert Sz semiology to one-hot
-sz_id2diag = {0:'sz_dx_none', 1:'sz_dx_generalized', 2:'sz_dx_focal motor/simple partial/ complex partial'}
-sz1_diagnosis_onehot = convert_to_onehot(all_covs['Sz Semiology1'], sz_id2diag)
-#'Sz Semiology2'
-#sz2_diagnosis_onehot = convert_to_onehot(all_covs['Sz Semiology2'], sz_id2diag)
+#sz_id2diag = {0:'sz_dx_none', 1:'sz_dx_generalized', 2:'sz_dx_focal motor/simple partial/ complex partial'}
+#sz1_diagnosis_onehot = convert_to_onehot(all_covs['Sz Semiology1'], sz_id2diag)
 
 diagnosis_onehot = neuro_diagnosis_onehot.copy()
 diagnosis_onehot.update(prim_diagnosis_onehot)
-diagnosis_onehot.update(sz1_diagnosis_onehot)
-#diagnosis_onehot.update(sz2_diagnosis_onehot)
+#diagnosis_onehot.update(sz1_diagnosis_onehot)
 all_covs = all_covs.assign(**diagnosis_onehot)
 all_covs = all_covs.drop(columns=['Final Neuro  Dx', 'Primary systemic Dx'])
 
-#covs = covs.assign(Weight=weights)
+# group surgery as: (0,2), (5)
+all_covs = all_covs.rename(columns={'none=0                                   none-surgical=5       emergent operation=5           elective operation=2':'Surgery'})
+all_covs.loc[np.in1d(all_covs.Surgery, [0,2]), 'Surgery'] = 0
+all_covs.loc[all_covs.Surgery==5, 'Surgery'] = 1
+assert set(all_covs.Surgery.dropna().unique())==set([0,1])
 
-cov_names = [
-'Gender',
-'Age',
-'marrital',
-#'Weight',
+# group as (0, 1, 2) vs (3,4)
+all_covs = all_covs.rename(columns={'SDH age None 0         acute=4   subacute=1           chronic=2           acute on chronic=3':'acute SDH'})
+all_covs['acute SDH'] = [np.nan if pd.isna(x) else max(map(int, x.split(','))) for x in all_covs['acute SDH']]
+all_covs.loc[np.in1d(all_covs['acute SDH'], [0,1,2]), 'acute SDH'] = 0
+all_covs.loc[np.in1d(all_covs['acute SDH'], [3,4]), 'acute SDH'] = 1
+assert set(all_covs['acute SDH'].dropna().unique())==set([0,1])
+print(all_covs.shape[1]-1, 'features')
 
-'APACHE II  first 24',
-#'temp/F highest (first 24h)', 'temp/F lowest (first 24h)',
-#'SBP Highest (first 24h)', 'SBP Lowest (first 24h)',
-#'DBP Highest (first 24h)', 'DBP lowest (first 24h)',
-#'HR highest (first 24h)', 'HR lowest (first 24h)',
-#'RR highest (first 24h)', 'RR lowest (first 24h)',
+cov_names = OrderedDict()
+cov_names['Gender'] = 'Gender'
+cov_names['Age'] = 'Age'
+cov_names['marrital'] = 'Marrital'
 
-'Hx CVA (including TIA)',
-'Hx HTN',
-'Hx Sz /epilepsy',
-'Hx brain surgery',
-'Hx CKD',
-'Hx CAD/MI',
-'Hx CHF',
-'Hx DM',
-'Hx of HLD',
-'Hx PUD',
-'Hx liver failure',
-'Hx tobacco (including ex-smokers)',
-'Hx ETOH abuse any time in their life (just when in the hx is mentioned)',
-'Hx other substance abuse, any time in their life',
-'Hx cancer (other than CNS cancer)',
-'Hx CNS cancer',
-'Hx PVD',
-'Hx dementia',
-'Hx COPD/ Asthma',
-'Hx leukemia/lymphoma',
-'Hx AIDs',
-'Hx CTD',
-'premorbid MRS before admission  (modified ranking scale),before admission',
+cov_names['iGCS-Total'] = 'iGCS-Total'
+cov_names['iGCS = T?'] = 'iGCS = T?'
+cov_names['Worst GCS in 1st 24'] = 'Worst GCS in 1st 24h'
+cov_names['Worst GCS Intubation status'] = 'Worst GCS intub'
+#cov_names['iGCS actual scores'] = 'iGCS actual scores'
+cov_names['APACHE II  first 24'] = 'APACHE II 1st 24h'
+cov_names['temp/C highest (first 24h)'] = 'temp/C highest (1st 24h)'
+cov_names['temp/C lowest (first 24h)'] = 'temp/C lowest (1st 24h)'
+cov_names['SBP Highest (first 24h)'] = 'SBP highest (1st 24h)'
+cov_names['SBP Lowest (first 24h)'] = 'SBP lowest (1st 24h)'
+cov_names['DBP Highest (first 24h)'] = 'DBP highest (1st 24h)'
+cov_names['DBP lowest (first 24h)'] = 'DBP lowest (1st 24h)'
+cov_names['HR highest (first 24h)'] = 'HR highest (1std 24h)'
+cov_names['HR lowest (first 24h)'] = 'HR lowest (1st 24h)'
 
-#'OSH time 1st AED     (Sz med), just MGH notes, do not look for OSH notes',
-#'OSH other Rx, No  0   immunosuppressive 1 Other seizure Meds=2 Both immunosupp and other seizure med =3',
-#'CA (PEA) presentation on admission(document Date)',
+cov_names['Surgery'] = 'Surgery'
 
-'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)',
-#'Sz Semiology1',
-#'Sz Semiology2',
-#'Electrographic seizures',  # no data
+cov_names['Hx CVA (including TIA)'] = 'Hx CVA'
+cov_names['Hx HTN'] = 'Hx HTN'
+cov_names['Hx Sz /epilepsy'] = 'Hx Sz'
+cov_names['Hx brain surgery'] = 'Hx brain surgery'
+cov_names['Hx CKD'] = 'Hx CKD'
+cov_names['Hx CAD/MI'] = 'Hx CAD/MI'
+cov_names['Hx CHF'] = 'Hx CHF'
+cov_names['Hx DM'] = 'Hx DM'
+cov_names['Hx of HLD'] = 'Hx HLD'
+cov_names['Hx PUD'] = 'Hx PUD'
+cov_names['Hx liver failure'] = 'Hx liver failure'
+cov_names['Hx tobacco (including ex-smokers)'] = 'Hx smoking'
+cov_names['Hx ETOH abuse any time in their life (just when in the hx is mentioned)'] = 'Hx alcohol'
+cov_names['Hx other substance abuse, any time in their life'] = 'Hx substance abuse'
+cov_names['Hx cancer (other than CNS cancer)'] = 'Hx cancer'
+cov_names['Hx CNS cancer'] = 'Hx CNS cancer'
+cov_names['Hx PVD'] = 'Hx PVD'
+cov_names['Hx dementia'] = 'Hx dementia'
+cov_names['Hx COPD/ Asthma'] = 'Hx COPD/Asthma'
+cov_names['Hx leukemia/lymphoma'] = 'Hx leukemia/lymphoma'
+cov_names['Hx AIDs'] = 'Hx AIDs'
+cov_names['Hx CTD'] = 'Hx CTD'
 
-'elevated ICP=more than 20 (either on admission or in hospital course)   QPID',
-'hydrocephalus  (either on admission or during hospital course)   QPID',
+cov_names['premorbid MRS before admission  (modified ranking scale),before admission'] = 'premorbid MRS'
+cov_names['OSH time 1st AED     (Sz med), just MGH notes, do not look for OSH notes'] = 'OSH time 1st AED'
+cov_names['CA (PEA) presentation on admission     (document Date)'] = 'CA (PEA)'
+cov_names['SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)'] = 'Sz at presentation'
+cov_names['EEGd1 MV'] = 'EEG day1 MV'
+cov_names['EEGd1 GCS              actual score'] = 'EEG day1 GCS'
+#cov_names['EEGd1 Map  (mean arterial pressure)'] = 'EEG day1 MAP'
+cov_names['EEGd1 syst BP( Closest to the date of EEG)'] = 'EEG day1 sysBP'
+cov_names['acute SDH'] = 'acute SDH'
+cov_names['Primary systemic dx Sepsis/Shock'] = 'Sepsis/Shock'
 
-'iMV  (initial (on admission) mechanical ventilation)',
-'systolic BP',
-'diastolic BP',
+#cov_names['neuro_dx_none stroke'] = 'NeuroDx:None'
+cov_names['neuro_dx_ischemic stroke'] = 'NeuroDx:IschStroke'
+cov_names['neuro_dx_hemorrhagic stroke'] = 'NeuroDx:HemStroke'
+cov_names['neuro_dx_SAH'] = 'NeuroDx:SAH'
+cov_names['neuro_dx_SDH'] = 'NeuroDx:SDH'
+cov_names['neuro_dx_SDH+other TBI (including SAH)'] = 'NeuroDx:SDH+TBI(SAH)'
+cov_names['neuro_dx_Other TBI (including SAH)'] = 'NeuroDx:TBI(SAH)'
+cov_names['neuro_dx_Seizures/status epilepticus'] = 'NeuroDx:Sz/SE'
+cov_names['neuro_dx_Brain tumor/primary or mets'] = 'NeuroDx:Brain tumor'
+cov_names['neuro_dx_CNS infection/inflammation'] = 'NeuroDx:CNS infection'
+cov_names['neuro_dx_Hypoxic ischemic encephalopathy/Anoxic brain injury'] = 'NeuroDx:HIE/ABI'
+cov_names['neuro_dx_Toxic metabolic encephalopathy'] = 'NeuroDx:TME'
+cov_names['neuro_dx_Other neurosurgical (non tumor/trauma) (eg EVD/VPS etc)'] = 'NeuroDx:Neurosurgical'
+cov_names['neuro_dx_Primary psychiatric disorder'] = 'NeuroDx:Psyc'
+cov_names['neuro_dx_Other structural-degenerative diseases'] = 'NeuroDx:Degenerative'
+cov_names['neuro_dx_Spells'] = 'NeuroDx:Spells'
 
-'Midline shift with any reason ( Document Date)',
-
-# hospital acquired infections are obtained after admission
-#'Other HAI',
-#'HAI-PNA',
-#'HAI-UTI',
-#'HAI-Sepsis/SEPTICEMIA',
-#'HAI-meningitis/ventriculitis/cerebritis',
-#'HAI-Cdiff',
-#'DVT',
-
-#'Final Neuro  Dx',
-#'Primary systemic Dx',
-
-'Primary systemic dx Sepsis/Shock',
-
-'External Ventricular Drain (EVD)',
-'BOLT N0=0 Yes=1',
-
-'iGCS-Total',
-'iGCS = T?',
-'iGCS-E',
-'iGCS-V',
-'iGCS-M',
-'Worst GCS in 1st 24',
-'Worst GCS Intubation status',
-'iGCS actual scores',
-]+list(neuro_id2diag.values())+list(prim_id2diag.values())+list(sz_id2diag.values())
+#cov_names['prim_dx_none'] = 'PrimDx:None'
+cov_names['prim_dx_Respiratory disorders'] = 'PrimDx:Resp'
+cov_names['prim_dx_cardiovascular disorders'] = 'PrimDx:Cardio'
+cov_names['prim_dx_Renal failure'] = 'PrimDx:RenalFailure'
+cov_names['prim_dx_Liver disorders'] = 'PrimDx:LiverDisorder'
+cov_names['prim_dx_Gastrointestinal non-hemorrhagic'] = 'PrimDx:GI'
+cov_names['prim_dx_Genitourinary'] = 'PrimDx:GU'
+cov_names['prim_dx_Systemic hemorrhage'] = 'PrimDx:SysHemorrhage'
+cov_names['prim_dx_Endocrine emergency'] = 'PrimDx:EndoEmegy'
+cov_names['prim_dx_Non head trauma (including spine)'] = 'PrimDx:NonHeadTrauma'
+cov_names['prim_dx_Malignancy (solid tumors/hematologic)'] = 'PrimDx:Malignancy'
+cov_names['prim_dx_Other post operative (eg CT surgery, transplant)'] = 'PrimDx:PostPperative'
+cov_names['prim_dx_Primary hematological disorder'] = 'PrimDx:Hem'
+cov_names['prim_dx_Immunological'] = 'PrimDx:Immuno'
+cov_names['prim_dx_Dermatological/Musculoskeletal'] = 'PrimDx:Derm'
 
 all_covs_sids = list(all_covs.Index)
-covs = all_covs[['Index']+cov_names]
-#ids = [all_covs_sids.index(sid) for sid in sids]
-#covs = covs.iloc[ids].reset_index(drop=True)
+covs = all_covs[['Index']+list(cov_names.keys())]
+covs = covs.rename(columns=cov_names)
+print(covs.shape[1]-1, 'features')
 
 # remove rare covs
-notrare_cov_col_ids = (covs.values!=0).sum(axis=0)>=10
-covs = covs[covs.columns[notrare_cov_col_ids]]
+notrare_cov_col_ids = (covs.values!=0).sum(axis=0)>=20
+print('removed covariates due to less than 1%', covs.columns[~notrare_cov_col_ids])
+covs = covs.iloc[:,notrare_cov_col_ids]
+print(covs.shape[1]-1, 'features')
 
-cols = ['Index', 'Gender', 'Age', 'marrital', 'APACHE II  first 24', 'Hx CVA (including TIA)', 'Hx HTN', 'Hx Sz /epilepsy', 'Hx brain surgery', 'Hx CKD', 'Hx CAD/MI', 'Hx CHF', 'Hx DM', 'Hx of HLD', 'Hx tobacco (including ex-smokers)', 'Hx ETOH abuse any time in their life (just when in the hx is mentioned)', 'Hx other substance abuse, any time in their life', 'Hx cancer (other than CNS cancer)', 'Hx CNS cancer', 'Hx COPD/ Asthma', 'premorbid MRS before admission  (modified ranking scale),before admission', 'SZ at presentation,(exclude non-convulsive seizures) just if it is mentioned in MGH notes (the date is necessary, however,the date is the day of admission at MGH)', 'hydrocephalus  (either on admission or during hospital course)   QPID', 'iMV  (initial (on admission) mechanical ventilation)', 'systolic BP', 'diastolic BP', 'Midline shift with any reason ( Document Date)', 'Primary systemic dx Sepsis/Shock', 'iGCS-Total', 'iGCS = T?', 'iGCS-E', 'iGCS-V', 'iGCS-M', 'Worst GCS in 1st 24', 'Worst GCS Intubation status', 'iGCS actual scores', 'neuro_dx_Seizures/status epilepticus', 'prim_dx_Respiratory disorders']
-covs = covs[cols]
-covs.to_csv(os.path.join(output_dir, 'covariates.csv'), index=False)
+# remove covs with >50% NaN
+covs = covs.iloc[:,pd.isna(covs).mean(axis=0).values<0.5]
+print(covs.shape[1]-1, 'features')
 
+covs.to_csv(os.path.join(output_dir, 'covariates-to-be-used.csv'), index=False)
+
+
+df_all = pd.read_csv('/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/SAGE_DataScrub_SBullock_11.4.2019_HaoqiCorrected.csv')
 
 outcome_names = [
 'DC MRS (modified ranking scale)',
 'DC GOSE (extended glasgow outcome scale)',
 'DC dispo home=1, rehab=2, SNF =3, hospice =4, dead =5'
 ]
-outcomes = all_covs[['Index']+outcome_names]
-#outcomes = outcomes.iloc[ids].reset_index(drop=True)
+outcomes = df_all[['Index']+outcome_names]
+assert np.all(covs.Index==outcomes.Index)
 outcomes.to_csv(os.path.join(output_dir, 'outcomes.csv'), index=False)

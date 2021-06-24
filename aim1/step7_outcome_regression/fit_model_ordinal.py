@@ -280,7 +280,7 @@ def generate_outcome_X(Pobs, D, Dmax, Dname, input_type, responses, W, sids=None
         Xsim = np.concatenate(Xsim, axis=1)
         
     elif input_type=='response':
-        use_interaction = (responses == ['iic_burden_smooth', 'spike_rate']) or (responses == ['spike_rate', 'iic_burden_smooth'])
+        use_interaction = ('iic_burden_smooth' in responses) and ('spike_rate' in responses)
         Nwindow_1h = int(round(1./(W*2./3600)))
         
         sim_name = []
