@@ -195,8 +195,6 @@ class malts:
                                
         return pd.DataFrame.from_dict(cate,orient='index')   
 
-# X  | T | Y(A) | Y(B) |  ...  | Y(Z) |
- ... | A | Yi   | Y'b  | Y'c   | Na   |
         
 class malts_mf:
     def __init__(self,outcome,treatment,data,discrete=[],C=1,k_tr=2,k_est=2,estimator='linear',smooth_cate=True,reweight=False,n_splits=5,n_repeats=1,output_format='brief'):
