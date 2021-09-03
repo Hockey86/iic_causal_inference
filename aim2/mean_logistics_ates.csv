@@ -1,0 +1,181 @@
+,Value,IIC_Burden,Control,IIC Burden
+1,0.636363636,1,No Control,1
+2,0.65,2,No Control,2
+3,0.666666667,3,No Control,3
+4,0.857142857,4,No Control,4
+5,0.636363636,1,No Control,1
+6,0.65,2,No Control,2
+7,0.75,3,No Control,3
+8,0.785714286,4,No Control,4
+9,0.654545455,1,No Control,1
+10,0.7,2,No Control,2
+11,0.666666667,3,No Control,3
+12,0.857142857,4,No Control,4
+13,0.645454545,1,No Control,1
+14,0.6,2,No Control,2
+15,0.666666667,3,No Control,3
+16,0.785714286,4,No Control,4
+17,0.6,1,No Control,1
+18,0.65,2,No Control,2
+19,0.75,3,No Control,3
+20,0.857142857,4,No Control,4
+21,0.636363636,1,No Control,1
+22,0.6,2,No Control,2
+23,0.75,3,No Control,3
+24,0.785714286,4,No Control,4
+25,0.672727273,1,No Control,1
+26,0.75,2,No Control,2
+27,0.75,3,No Control,3
+28,0.785714286,4,No Control,4
+29,0.663636364,1,No Control,1
+30,0.7,2,No Control,2
+31,0.666666667,3,No Control,3
+32,0.714285714,4,No Control,4
+33,0.627272727,1,No Control,1
+34,0.65,2,No Control,2
+35,0.583333333,3,No Control,3
+36,0.857142857,4,No Control,4
+37,0.636363636,1,No Control,1
+38,0.55,2,No Control,2
+39,0.666666667,3,No Control,3
+40,0.857142857,4,No Control,4
+41,0.609090909,1,No Control,1
+42,0.65,2,No Control,2
+43,0.75,3,No Control,3
+44,0.857142857,4,No Control,4
+45,0.563636364,1,No Control,1
+46,0.6,2,No Control,2
+47,0.583333333,3,No Control,3
+48,0.785714286,4,No Control,4
+49,0.6,1,No Control,1
+50,0.7,2,No Control,2
+51,0.75,3,No Control,3
+52,0.714285714,4,No Control,4
+53,0.654545455,1,No Control,1
+54,0.8,2,No Control,2
+55,0.666666667,3,No Control,3
+56,0.857142857,4,No Control,4
+57,0.690909091,1,No Control,1
+58,0.7,2,No Control,2
+59,0.75,3,No Control,3
+60,0.785714286,4,No Control,4
+61,0.728096677,1,Controlling for Everything,1
+62,0.672699849,1,Controlling for Everything,1
+63,0.604511278,1,Controlling for Everything,1
+64,0.69305136,1,Controlling for Everything,1
+65,0.725791855,1,Controlling for Everything,1
+66,0.607218045,1,Controlling for Everything,1
+67,0.63836858,1,Controlling for Everything,1
+68,0.67439759,1,Controlling for Everything,1
+69,0.650075415,1,Controlling for Everything,1
+70,0.660120846,1,Controlling for Everything,1
+71,0.747812971,1,Controlling for Everything,1
+72,0.671879699,1,Controlling for Everything,1
+73,0.621417798,1,Controlling for Everything,1
+74,0.635294118,1,Controlling for Everything,1
+75,0.695572519,1,Controlling for Everything,1
+76,0.577039275,2,Controlling for Everything,2
+77,0.652187029,2,Controlling for Everything,2
+78,0.73443609,2,Controlling for Everything,2
+79,0.641691843,2,Controlling for Everything,2
+80,0.636500754,2,Controlling for Everything,2
+81,0.795475113,2,Controlling for Everything,2
+82,0.644478064,2,Controlling for Everything,2
+83,0.591805766,2,Controlling for Everything,2
+84,0.649170437,2,Controlling for Everything,2
+85,0.659606657,2,Controlling for Everything,2
+86,0.62081448,2,Controlling for Everything,2
+87,0.761804511,2,Controlling for Everything,2
+88,0.616591252,2,Controlling for Everything,2
+89,0.762204724,2,Controlling for Everything,2
+90,0.66562986,2,Controlling for Everything,2
+91,0.839879154,3,Controlling for Everything,3
+92,0.747812971,3,Controlling for Everything,3
+93,0.723909774,3,Controlling for Everything,3
+94,0.816616314,3,Controlling for Everything,3
+95,0.781900452,3,Controlling for Everything,3
+96,0.737556561,3,Controlling for Everything,3
+97,0.804236006,3,Controlling for Everything,3
+98,0.672837633,3,Controlling for Everything,3
+99,0.763800905,3,Controlling for Everything,3
+100,0.787291982,3,Controlling for Everything,3
+101,0.805128205,3,Controlling for Everything,3
+102,0.768120301,3,Controlling for Everything,3
+103,0.787933635,3,Controlling for Everything,3
+104,0.851184834,3,Controlling for Everything,3
+105,0.656603774,3,Controlling for Everything,3
+106,0.66918429,4,Controlling for Everything,4
+107,0.760180995,4,Controlling for Everything,4
+108,0.821052632,4,Controlling for Everything,4
+109,0.801510574,4,Controlling for Everything,4
+110,0.771644042,4,Controlling for Everything,4
+111,0.724585219,4,Controlling for Everything,4
+112,0.674130106,4,Controlling for Everything,4
+113,0.662822458,4,Controlling for Everything,4
+114,0.828054299,4,Controlling for Everything,4
+115,0.785779123,4,Controlling for Everything,4
+116,0.686877828,4,Controlling for Everything,4
+117,0.781353383,4,Controlling for Everything,4
+118,0.809351433,4,Controlling for Everything,4
+119,0.763125,4,Controlling for Everything,4
+120,0.648657188,4,Controlling for Everything,4
+121,0.645454545,1,Logistic Regression,1
+122,0.65,2,Logistic Regression,2
+123,0.75,3,Logistic Regression,3
+124,0.785714286,4,Logistic Regression,4
+125,0.636363636,1,Logistic Regression,1
+126,0.65,2,Logistic Regression,2
+127,0.666666667,3,Logistic Regression,3
+128,1,4,Logistic Regression,4
+129,0.672727273,1,Logistic Regression,1
+130,0.7,2,Logistic Regression,2
+131,0.75,3,Logistic Regression,3
+132,0.857142857,4,Logistic Regression,4
+133,0.636363636,1,Logistic Regression,1
+134,0.55,2,Logistic Regression,2
+135,0.75,3,Logistic Regression,3
+136,0.857142857,4,Logistic Regression,4
+137,0.618181818,1,Logistic Regression,1
+138,0.8,2,Logistic Regression,2
+139,0.833333333,3,Logistic Regression,3
+140,0.785714286,4,Logistic Regression,4
+141,0.672727273,1,Logistic Regression,1
+142,0.75,2,Logistic Regression,2
+143,0.666666667,3,Logistic Regression,3
+144,0.785714286,4,Logistic Regression,4
+145,0.654545455,1,Logistic Regression,1
+146,0.7,2,Logistic Regression,2
+147,0.666666667,3,Logistic Regression,3
+148,0.928571429,4,Logistic Regression,4
+149,0.627272727,1,Logistic Regression,1
+150,0.7,2,Logistic Regression,2
+151,0.75,3,Logistic Regression,3
+152,0.714285714,4,Logistic Regression,4
+153,0.654545455,1,Logistic Regression,1
+154,0.6,2,Logistic Regression,2
+155,0.666666667,3,Logistic Regression,3
+156,0.785714286,4,Logistic Regression,4
+157,0.663636364,1,Logistic Regression,1
+158,0.7,2,Logistic Regression,2
+159,0.833333333,3,Logistic Regression,3
+160,0.928571429,4,Logistic Regression,4
+161,0.663636364,1,Logistic Regression,1
+162,0.5,2,Logistic Regression,2
+163,0.75,3,Logistic Regression,3
+164,0.857142857,4,Logistic Regression,4
+165,0.618181818,1,Logistic Regression,1
+166,0.7,2,Logistic Regression,2
+167,0.833333333,3,Logistic Regression,3
+168,0.785714286,4,Logistic Regression,4
+169,0.645454545,1,Logistic Regression,1
+170,0.7,2,Logistic Regression,2
+171,0.833333333,3,Logistic Regression,3
+172,0.857142857,4,Logistic Regression,4
+173,0.6,1,Logistic Regression,1
+174,0.7,2,Logistic Regression,2
+175,0.666666667,3,Logistic Regression,3
+176,0.785714286,4,Logistic Regression,4
+177,0.645454545,1,Logistic Regression,1
+178,0.75,2,Logistic Regression,2
+179,0.833333333,3,Logistic Regression,3
+180,0.785714286,4,Logistic Regression,4
