@@ -1,176 +1,176 @@
-,Value,IIC_Burden,Control,IIC Burden
-1,0.666666667,1,No Control,1
-2,0.75,2,No Control,2
-3,0.4375,3,No Control,3
-4,0.724637681,4,No Control,4
-5,0.62745098,1,No Control,1
-6,0.7,2,No Control,2
-7,0.5,3,No Control,3
-8,0.710144928,4,No Control,4
-9,0.607843137,1,No Control,1
-10,0.7,2,No Control,2
-11,0.5,3,No Control,3
-12,0.666666667,4,No Control,4
-13,0.568627451,1,No Control,1
-14,0.6,2,No Control,2
-15,0.6875,3,No Control,3
-16,0.695652174,4,No Control,4
-17,0.647058824,1,No Control,1
-18,0.75,2,No Control,2
-19,0.5,3,No Control,3
-20,0.695652174,4,No Control,4
-21,0.62745098,1,No Control,1
-22,0.6,2,No Control,2
-23,0.375,3,No Control,3
-24,0.724637681,4,No Control,4
-25,0.62745098,1,No Control,1
-26,0.6,2,No Control,2
-27,0.5,3,No Control,3
-28,0.724637681,4,No Control,4
-29,0.62745098,1,No Control,1
-30,0.75,2,No Control,2
-31,0.375,3,No Control,3
-32,0.710144928,4,No Control,4
-33,0.68627451,1,No Control,1
-34,0.8,2,No Control,2
-35,0.5,3,No Control,3
-36,0.666666667,4,No Control,4
-37,0.666666667,1,No Control,1
-38,0.75,2,No Control,2
-39,0.4375,3,No Control,3
-40,0.753623188,4,No Control,4
-41,0.607843137,1,No Control,1
-42,0.65,2,No Control,2
-43,0.5,3,No Control,3
-44,0.652173913,4,No Control,4
-45,0.666666667,1,No Control,1
-46,0.75,2,No Control,2
-47,0.4375,3,No Control,3
-48,0.695652174,4,No Control,4
-49,0.647058824,1,No Control,1
-50,0.7,2,No Control,2
-51,0.4375,3,No Control,3
-52,0.724637681,4,No Control,4
-53,0.62745098,1,No Control,1
-54,0.65,2,No Control,2
-55,0.5625,3,No Control,3
-56,0.753623188,4,No Control,4
-57,0.647058824,1,No Control,1
-58,0.6,2,No Control,2
-59,0.4375,3,No Control,3
-60,0.666666667,4,No Control,4
-61,0.608888889,1,Controlling for Everything,1
-62,0.532369942,1,Controlling for Everything,1
-63,0.553658537,1,Controlling for Everything,1
-64,0.566666667,1,Controlling for Everything,1
-65,0.559281437,1,Controlling for Everything,1
-66,0.464,1,Controlling for Everything,1
-67,0.526666667,1,Controlling for Everything,1
-68,0.459259259,1,Controlling for Everything,1
-69,0.382352941,1,Controlling for Everything,1
-70,0.443870968,1,Controlling for Everything,1
-71,0.637864078,1,Controlling for Everything,1
-72,0.563636364,1,Controlling for Everything,1
-73,0.496296296,1,Controlling for Everything,1
-74,0.432,1,Controlling for Everything,1
-75,0.633333333,1,Controlling for Everything,1
-76,0.4,2,Controlling for Everything,2
-77,0.672262774,2,Controlling for Everything,2
-78,0.844444444,2,Controlling for Everything,2
-79,0.6,2,Controlling for Everything,2
-80,0.694285714,2,Controlling for Everything,2
-81,0.7,2,Controlling for Everything,2
-82,0.775862069,2,Controlling for Everything,2
-83,0.32,2,Controlling for Everything,2
-84,0.6,2,Controlling for Everything,2
-85,0.639344262,2,Controlling for Everything,2
-86,0.6,2,Controlling for Everything,2
-87,0.4,2,Controlling for Everything,2
-88,0.646875,2,Controlling for Everything,2
-89,0.527272727,2,Controlling for Everything,2
-90,0.6,3,Controlling for Everything,3
-91,0.642857143,3,Controlling for Everything,3
-92,0.507692308,3,Controlling for Everything,3
-93,0.745714286,3,Controlling for Everything,3
-94,0.563636364,3,Controlling for Everything,3
-95,0.634482759,3,Controlling for Everything,3
-96,0.6,3,Controlling for Everything,3
-97,0.597333333,3,Controlling for Everything,3
-98,0.473846154,3,Controlling for Everything,3
-99,0.684848485,3,Controlling for Everything,3
-100,0.64,3,Controlling for Everything,3
-101,0.646753247,4,Controlling for Everything,4
-102,0.632843137,4,Controlling for Everything,4
-103,0.758928571,4,Controlling for Everything,4
-104,0.666666667,4,Controlling for Everything,4
-105,0.642780749,4,Controlling for Everything,4
-106,0.723529412,4,Controlling for Everything,4
-107,0.533333333,4,Controlling for Everything,4
-108,0.71292517,4,Controlling for Everything,4
-109,0.634782609,4,Controlling for Everything,4
-110,0.61928934,4,Controlling for Everything,4
-111,0.788549618,4,Controlling for Everything,4
-112,0.586666667,4,Controlling for Everything,4
-113,0.620408163,4,Controlling for Everything,4
-114,0.673758865,4,Controlling for Everything,4
-115,0.687640449,4,Controlling for Everything,4
-121,0.588235294,1,Logistic Regression,1
-122,0.7,2,Logistic Regression,2
-123,0.5,3,Logistic Regression,3
-124,0.695652174,4,Logistic Regression,4
-125,0.62745098,1,Logistic Regression,1
-126,0.65,2,Logistic Regression,2
-127,0.5625,3,Logistic Regression,3
-128,0.724637681,4,Logistic Regression,4
-129,0.68627451,1,Logistic Regression,1
-130,0.75,2,Logistic Regression,2
-131,0.625,3,Logistic Regression,3
-132,0.724637681,4,Logistic Regression,4
-133,0.62745098,1,Logistic Regression,1
-134,0.75,2,Logistic Regression,2
-135,0.5,3,Logistic Regression,3
-136,0.739130435,4,Logistic Regression,4
-137,0.607843137,1,Logistic Regression,1
-138,0.8,2,Logistic Regression,2
-139,0.4375,3,Logistic Regression,3
-140,0.68115942,4,Logistic Regression,4
-141,0.725490196,1,Logistic Regression,1
-142,0.7,2,Logistic Regression,2
-143,0.5,3,Logistic Regression,3
-144,0.695652174,4,Logistic Regression,4
-145,0.666666667,1,Logistic Regression,1
-146,0.7,2,Logistic Regression,2
-147,0.5625,3,Logistic Regression,3
-148,0.724637681,4,Logistic Regression,4
-149,0.647058824,1,Logistic Regression,1
-150,0.75,2,Logistic Regression,2
-151,0.5625,3,Logistic Regression,3
-152,0.710144928,4,Logistic Regression,4
-153,0.666666667,1,Logistic Regression,1
-154,0.65,2,Logistic Regression,2
-155,0.4375,3,Logistic Regression,3
-156,0.68115942,4,Logistic Regression,4
-157,0.647058824,1,Logistic Regression,1
-158,0.8,2,Logistic Regression,2
-159,0.5625,3,Logistic Regression,3
-160,0.710144928,4,Logistic Regression,4
-161,0.647058824,1,Logistic Regression,1
-162,0.65,2,Logistic Regression,2
-163,0.5625,3,Logistic Regression,3
-164,0.710144928,4,Logistic Regression,4
-165,0.705882353,1,Logistic Regression,1
-166,0.7,2,Logistic Regression,2
-167,0.6875,3,Logistic Regression,3
-168,0.739130435,4,Logistic Regression,4
-169,0.68627451,1,Logistic Regression,1
-170,0.65,2,Logistic Regression,2
-171,0.5,3,Logistic Regression,3
-172,0.695652174,4,Logistic Regression,4
-173,0.607843137,1,Logistic Regression,1
-174,0.55,2,Logistic Regression,2
-175,0.625,3,Logistic Regression,3
-176,0.724637681,4,Logistic Regression,4
-177,0.666666667,1,Logistic Regression,1
-178,0.6,2,Logistic Regression,2
-179,0.5,3,Logistic Regression,3
-180,0.753623188,4,Logistic Regression,4
+,Estimated Probability of Bad Outcome,EA Burden,Approach
+1,0.68627451,Mild,Naive Difference
+2,0.7,Moderate,Naive Difference
+3,0.4375,Severe,Naive Difference
+4,0.666666667,Very Severe,Naive Difference
+5,0.666666667,Mild,Naive Difference
+6,0.7,Moderate,Naive Difference
+7,0.6875,Severe,Naive Difference
+8,0.666666667,Very Severe,Naive Difference
+9,0.647058824,Mild,Naive Difference
+10,0.75,Moderate,Naive Difference
+11,0.5625,Severe,Naive Difference
+12,0.710144928,Very Severe,Naive Difference
+13,0.607843137,Mild,Naive Difference
+14,0.6,Moderate,Naive Difference
+15,0.625,Severe,Naive Difference
+16,0.68115942,Very Severe,Naive Difference
+17,0.62745098,Mild,Naive Difference
+18,0.7,Moderate,Naive Difference
+19,0.625,Severe,Naive Difference
+20,0.724637681,Very Severe,Naive Difference
+21,0.607843137,Mild,Naive Difference
+22,0.7,Moderate,Naive Difference
+23,0.6875,Severe,Naive Difference
+24,0.739130435,Very Severe,Naive Difference
+25,0.62745098,Mild,Naive Difference
+26,0.65,Moderate,Naive Difference
+27,0.625,Severe,Naive Difference
+28,0.724637681,Very Severe,Naive Difference
+29,0.68627451,Mild,Naive Difference
+30,0.7,Moderate,Naive Difference
+31,0.5,Severe,Naive Difference
+32,0.710144928,Very Severe,Naive Difference
+33,0.588235294,Mild,Naive Difference
+34,0.6,Moderate,Naive Difference
+35,0.625,Severe,Naive Difference
+36,0.68115942,Very Severe,Naive Difference
+37,0.68627451,Mild,Naive Difference
+38,0.6,Moderate,Naive Difference
+39,0.625,Severe,Naive Difference
+40,0.724637681,Very Severe,Naive Difference
+41,0.647058824,Mild,Naive Difference
+42,0.6,Moderate,Naive Difference
+43,0.5,Severe,Naive Difference
+44,0.68115942,Very Severe,Naive Difference
+45,0.62745098,Mild,Naive Difference
+46,0.55,Moderate,Naive Difference
+47,0.4375,Severe,Naive Difference
+48,0.637681159,Very Severe,Naive Difference
+49,0.68627451,Mild,Naive Difference
+50,0.6,Moderate,Naive Difference
+51,0.4375,Severe,Naive Difference
+52,0.695652174,Very Severe,Naive Difference
+53,0.607843137,Mild,Naive Difference
+54,0.7,Moderate,Naive Difference
+55,0.5,Severe,Naive Difference
+56,0.68115942,Very Severe,Naive Difference
+57,0.725490196,Mild,Naive Difference
+58,0.6,Moderate,Naive Difference
+59,0.5,Severe,Naive Difference
+60,0.637681159,Very Severe,Naive Difference
+61,0.608888889,Mild,Causal Inference Approach
+62,0.532369942,Mild,Causal Inference Approach
+63,0.553658537,Mild,Causal Inference Approach
+64,0.566666667,Mild,Causal Inference Approach
+65,0.559281437,Mild,Causal Inference Approach
+66,0.464,Mild,Causal Inference Approach
+67,0.526666667,Mild,Causal Inference Approach
+68,0.459259259,Mild,Causal Inference Approach
+69,0.382352941,Mild,Causal Inference Approach
+70,0.443870968,Mild,Causal Inference Approach
+71,0.637864078,Mild,Causal Inference Approach
+72,0.563636364,Mild,Causal Inference Approach
+73,0.496296296,Mild,Causal Inference Approach
+74,0.432,Mild,Causal Inference Approach
+75,0.633333333,Mild,Causal Inference Approach
+76,0.4,Moderate,Causal Inference Approach
+77,0.672262774,Moderate,Causal Inference Approach
+78,0.844444444,Moderate,Causal Inference Approach
+79,0.6,Moderate,Causal Inference Approach
+80,0.694285714,Moderate,Causal Inference Approach
+81,0.7,Moderate,Causal Inference Approach
+82,0.775862069,Moderate,Causal Inference Approach
+83,0.32,Moderate,Causal Inference Approach
+84,0.6,Moderate,Causal Inference Approach
+85,0.639344262,Moderate,Causal Inference Approach
+86,0.6,Moderate,Causal Inference Approach
+87,0.4,Moderate,Causal Inference Approach
+88,0.646875,Moderate,Causal Inference Approach
+89,0.527272727,Moderate,Causal Inference Approach
+90,0.6,Severe,Causal Inference Approach
+91,0.642857143,Severe,Causal Inference Approach
+92,0.507692308,Severe,Causal Inference Approach
+93,0.745714286,Severe,Causal Inference Approach
+94,0.563636364,Severe,Causal Inference Approach
+95,0.634482759,Severe,Causal Inference Approach
+96,0.6,Severe,Causal Inference Approach
+97,0.597333333,Severe,Causal Inference Approach
+98,0.473846154,Severe,Causal Inference Approach
+99,0.684848485,Severe,Causal Inference Approach
+100,0.64,Severe,Causal Inference Approach
+101,0.646753247,Very Severe,Causal Inference Approach
+102,0.632843137,Very Severe,Causal Inference Approach
+103,0.758928571,Very Severe,Causal Inference Approach
+104,0.666666667,Very Severe,Causal Inference Approach
+105,0.642780749,Very Severe,Causal Inference Approach
+106,0.723529412,Very Severe,Causal Inference Approach
+107,0.533333333,Very Severe,Causal Inference Approach
+108,0.71292517,Very Severe,Causal Inference Approach
+109,0.634782609,Very Severe,Causal Inference Approach
+110,0.61928934,Very Severe,Causal Inference Approach
+111,0.788549618,Very Severe,Causal Inference Approach
+112,0.586666667,Very Severe,Causal Inference Approach
+113,0.620408163,Very Severe,Causal Inference Approach
+114,0.673758865,Very Severe,Causal Inference Approach
+115,0.687640449,Very Severe,Causal Inference Approach
+121,0.71078431,Mild,Regression Approach
+122,0.645501269,Moderate,Regression Approach
+123,0.7068752,Severe,Regression Approach
+124,0.66688949,Very Severe,Regression Approach
+125,0.740196077,Mild,Regression Approach
+126,0.640726714,Moderate,Regression Approach
+127,0.713735398,Severe,Regression Approach
+128,0.702767999,Very Severe,Regression Approach
+129,0.715686274,Mild,Regression Approach
+130,0.723908803,Moderate,Regression Approach
+131,0.673721811,Severe,Regression Approach
+132,0.716756872,Very Severe,Regression Approach
+133,0.745098036,Mild,Regression Approach
+134,0.654597446,Moderate,Regression Approach
+135,0.653113661,Severe,Regression Approach
+136,0.684481006,Very Severe,Regression Approach
+137,0.735294117,Mild,Regression Approach
+138,0.671889871,Moderate,Regression Approach
+139,0.695237153,Severe,Regression Approach
+140,0.708750858,Very Severe,Regression Approach
+141,0.720588232,Mild,Regression Approach
+142,0.679621753,Moderate,Regression Approach
+143,0.626946263,Severe,Regression Approach
+144,0.695558417,Very Severe,Regression Approach
+145,0.720588233,Mild,Regression Approach
+146,0.684821223,Moderate,Regression Approach
+147,0.69539407,Severe,Regression Approach
+148,0.707941467,Very Severe,Regression Approach
+149,0.710784312,Mild,Regression Approach
+150,0.678344689,Moderate,Regression Approach
+151,0.694530001,Severe,Regression Approach
+152,0.708827332,Very Severe,Regression Approach
+153,0.759803921,Mild,Regression Approach
+154,0.715513033,Moderate,Regression Approach
+155,0.712492525,Severe,Regression Approach
+156,0.721607275,Very Severe,Regression Approach
+157,0.715686273,Mild,Regression Approach
+158,0.649862969,Moderate,Regression Approach
+159,0.661190494,Severe,Regression Approach
+160,0.630120842,Very Severe,Regression Approach
+161,0.720588236,Mild,Regression Approach
+162,0.683623751,Moderate,Regression Approach
+163,0.688336967,Severe,Regression Approach
+164,0.732238272,Very Severe,Regression Approach
+165,0.745098039,Mild,Regression Approach
+166,0.598506655,Moderate,Regression Approach
+167,0.683225757,Severe,Regression Approach
+168,0.705052491,Very Severe,Regression Approach
+169,0.725490195,Mild,Regression Approach
+170,0.64772636,Moderate,Regression Approach
+171,0.725261806,Severe,Regression Approach
+172,0.725171878,Very Severe,Regression Approach
+173,0.754901959,Mild,Regression Approach
+174,0.671397959,Moderate,Regression Approach
+175,0.62616744,Severe,Regression Approach
+176,0.710361051,Very Severe,Regression Approach
+177,0.730392153,Mild,Regression Approach
+178,0.680919601,Moderate,Regression Approach
+179,0.64564667,Severe,Regression Approach
+180,0.709393047,Very Severe,Regression Approach
