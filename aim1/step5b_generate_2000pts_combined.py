@@ -3,14 +3,14 @@ import pickle
 import numpy as np
 
 
-def read_data(folder, data_type, responses):
+def read_data(folder, data_type, responses, W):
     """
     able to read and combine from different responses
     """
     res = {}
     sids = set()  # common_sids
     for r in responses:
-        with open(os.path.join(folder, f'data_to_fit_{data_type}_{r}.pickle'), 'rb') as f:
+        with open(os.path.join(folder, f'data_to_fit_{data_type}_{r}_W{W}.pickle'), 'rb') as f:
             res[r] = pickle.load(f)
         if len(sids)==0:
             sids.update(res[r]['sids'])
@@ -77,22 +77,23 @@ def read_data(folder, data_type, responses):
     C = C[ids]
     Y = data['Y'][ids]
     window_start_ids = [window_start_ids[responses[0]][x] for x in ids]
-    cluster = data['cluster'][ids]
+    #cluster = data['cluster'][ids]
     return sids, pseudoMRNs, Pobs,\
            D, Ddose, data['Dname'],\
            C, Cname, Y, data['Yname'],\
-           window_start_ids, cluster, data['W']
+           window_start_ids#, cluster, data['W']
            
            
 if __name__=='__main__':
     
+    W = 300
     data_type = 'CNNIIC'
     responses = ['iic_burden_smooth', 'spike_rate']
     
-    sids, pmrns, Pobs, D, Ddose, Dname, C, Cname, Y, Yname, window_start_ids, cluster, W = read_data('.', data_type, responses)
+    sids, pmrns, Pobs, D, Ddose, Dname, C, Cname, Y, Yname, window_start_ids = read_data('.', data_type, responses, W)
     
     responses2 = '+'.join(responses)
-    output_path = f'data_to_fit_CNNIIC_{responses2}.pickle'
+    output_path = f'data_to_fit_CNNIIC_{responses2}_W{W}.pickle'
     print(f'{len(sids)} patients')
     with open(output_path, 'wb') as f:
         pickle.dump({
@@ -100,4 +101,5 @@ if __name__=='__main__':
             'D':D, 'Ddose':Ddose, 'Dname':Dname,
             'Pobs':Pobs, 'Pname':responses,
             'C':C, 'Cname':Cname, 'Y':Y, 'Yname':Yname,
-            'cluster':cluster, 'sids':sids, 'pseudoMRNs':pmrns,}, f)
+            #'cluster':cluster,
+            'sids':sids, 'pseudoMRNs':pmrns,}, f)

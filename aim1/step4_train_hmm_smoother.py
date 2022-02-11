@@ -151,6 +151,7 @@ if __name__=='__main__':
     best_kappa = 0.40273290817848006 # [0.40273290817848006, 0.40247703814739666, 0.4029145614873192, 0.4026801688901007, 0.4024150213440768, 0.4024449937179385]
     hmm_final = hmm
     
+    import pdb;pdb.set_trace()
     with open('hmm_smoother_model.pickle', 'wb') as ff:
         pickle.dump({'hmm':hmm_final,
                      'best_smoothing_level':best_smoothing_level,

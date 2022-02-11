@@ -11,9 +11,12 @@ def get_pk_k():
         'midazolam':[15],      #  2.5h
         'pentobarbital':[195], # 32.5h (15-50h)
         'phenobarbital':[474], # 79h
-        'phenytoin':[147],     # 24.5h (7-42h)
+        #'phenytoin':[147],     # 24.5h (7-42h)
         'propofol':[2],        # 20minutes (3-12h after long time) (needs 3 differential equations)
-        'valproate':[96]       # 16h
+        'valproate':[96],      # 16h
+        'lorazepam':[72],      # 12h, (10-20h)
+        'diazepam':[300],      # 50h
+        'fosphenytoin':[132],  # 22h
         },index=['t1/2'])
     halflife = halflife.append(np.log(2) / halflife.rename(index={'t1/2':'k'}))
     PK_K = halflife.loc['k']

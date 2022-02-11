@@ -14,11 +14,12 @@ if __name__=='__main__':
     DATA_DIR = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data_to_share/step1_output_2000pt'
     sids = [x.replace('.mat','') for x in os.listdir(DATA_DIR) if x.endswith('.mat')]
     sids = sorted(sids, key=lambda x:int(x[len('sid'):]))
-    
     # # define PK time constants for each drug
     drugs_tostudy = ['lacosamide', 'levetiracetam', 'midazolam',
                     'pentobarbital','phenobarbital',# 'phenytoin',
-                    'propofol', 'valproate']
+                    'propofol', 'valproate',
+                    'lorazepam', 'diazepam', 'fosphenytoin']
+                     #'ketamine', 'carbamazepine', 'topiramate', 'clobazam', 'lamotrigine', 'oxcarbazepine',  'zonisamide', 'clonazepam'
     PK_K = get_pk_k()
     
     response_tostudy = str(sys.argv[1])# iic_burden_smooth or spike_rate
@@ -49,10 +50,25 @@ if __name__=='__main__':
         #freq.append(freq_)
     Y = np.array(Y)
     C = np.array(C)
-    #sids = C[:,0].astype(str)
+    
+    # convert race into dummy
+    race_id = Cname.index('Race')
+    C[C[:,race_id]=='Declined',race_id] = 'Other'
+    C[C[:,race_id]=='Unavailable',race_id] = 'Other'
+    races = np.sort(np.unique(C[:,race_id]))
+    for r in races:
+        if r=='White or Caucasian':  # white as baseline since the most
+            continue
+        C = np.c_[C, (C[:,race_id]==r).astype(int)]
+        Cname.append('Race_'+r)
+    C = C[:,np.arange(C.shape[1])!=race_id]
+    Cname.remove('Race')
+    
+    # remove sid in C
     C = C[:,1:].astype(float)
     Cname = Cname[1:]
     
+    """
     # get cluster
     df_cluster = pd.read_csv('Cluster_2000pts_using_C_12clusters.csv')
     sids2 = list(df_cluster.Index)
@@ -67,6 +83,7 @@ if __name__=='__main__':
             closest_id = rank[rank!=si][0]
             cluster.append(df_cluster['12_Cluster'].iloc[closest_id])
     cluster = np.array(cluster)
+    """
 
     print('%d patients'%len(sids))
     
@@ -87,7 +104,7 @@ if __name__=='__main__':
     Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
-    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    #cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
 
@@ -131,7 +148,7 @@ if __name__=='__main__':
     Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
-    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    #cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     """
@@ -186,7 +203,7 @@ if __name__=='__main__':
     Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
-    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    #cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     
@@ -213,7 +230,7 @@ if __name__=='__main__':
     Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
-    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    #cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     
@@ -243,7 +260,7 @@ if __name__=='__main__':
     Ddose = [Ddose[i] for i in keep_ids]
     Y = Y[keep_ids]
     C = C[keep_ids]
-    cluster = LabelEncoder().fit_transform(cluster[keep_ids])
+    #cluster = LabelEncoder().fit_transform(cluster[keep_ids])
     window_start_ids = [window_start_ids[i] for i in keep_ids]
     print('%d patients'%len(sids))
     
@@ -251,12 +268,13 @@ if __name__=='__main__':
     assert all([np.all(~np.isnan(x)) for x in Ddose])
     #assert all([np.all(~np.isnan(Pobs)) for x in Pobs])
     
-    output_path = f'data_to_fit_CNNIIC_{response_tostudy}.pickle'
+    output_path = f'data_to_fit_CNNIIC_{response_tostudy}_W{W}.pickle'
     with open(output_path, 'wb') as f:
         pickle.dump({'W':W, 'window_start_ids':window_start_ids,
                      'D':D, 'Ddose':Ddose, 'Dname':Dname,
                      'Pobs':Pobs, 'Pname':response_tostudy,
                      'C':C, 'Cname':Cname,
                      'Y':Y, 'Yname':outcome_tostudy,
-                     'cluster':cluster, 'sids':sids, 'pseudoMRNs':pmrns,}, f)
+                     #'cluster':cluster,
+                     'sids':sids, 'pseudoMRNs':pmrns,}, f)
 

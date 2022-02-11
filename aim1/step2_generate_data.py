@@ -132,7 +132,7 @@ if __name__=='__main__':
     #drug_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/generate_drug_data_to_crosscheck_with_Rajesh'
     drug_dir = '/data/Dropbox (Partners HealthCare)/CausalModeling_IIIC/data/drug_timeseries_2000pts'
     sids_all = sorted([x.split('_')[0] for x in os.listdir(drug_dir)], key=lambda x:int(x[len('sid'):]))
-    #"""
+    """
     sids = ['sid36', 'sid39', 'sid56', 'sid297', 'sid327', 'sid385',
         'sid395', 'sid400', 'sid403', 'sid406', 'sid424', 'sid450',
         'sid456', 'sid490', 'sid512', 'sid551', 'sid557', 'sid575',
@@ -152,9 +152,10 @@ if __name__=='__main__':
          'sid963', 'sid965', 'sid967', 'sid983', 'sid984', 'sid987', 'sid994', 'sid1000',
          'sid1002', 'sid1006', 'sid1022', 'sid1024', 'sid1101', 'sid1102', 'sid1105',
          'sid1113', 'sid1116']
-    #"""
     sids = sids + sorted(set(sids_all)-set(sids))
     sids = [x for x in sids if x in sids_all]
+    """
+    sids = sids_all
     
     NSAED_list = ['levetiracetam', 'lacosamide', 'lorazepam',# 'phenytoin',
                  'fosphenytoin', 'phenobarbital', 'carbamazepine',
@@ -191,6 +192,7 @@ if __name__=='__main__':
         label_end_time += datetime.timedelta(seconds=dur)
         T = int(np.floor((label_end_time-label_start_time).total_seconds()/step_time))
         
+        """
         iic_label = np.zeros(T)+np.nan
         for li, lp in enumerate(this_label_paths):
             start = int(np.floor((label_start_times[li] - label_start_time).total_seconds()/step_time))
@@ -198,12 +200,15 @@ if __name__=='__main__':
             end = min(T, start+len(this_iic_label))
             iic_label[start:end] = np.argmax(this_iic_label, axis=1)
         res['iic'] = iic_label
+        """
         
         ## get drugs
         
         drug_res = sio.loadmat(os.path.join(drug_dir, '%s_2secWindow.mat'%sid))
         drugs = []
         drugs_weightnormalized = []
+        drugs_inside_weightnormalized = []
+        drugs_outside_weightnormalized = []
         for dn in Dnames:
             if '%s_dose'%dn in drug_res:
                 # get 2s widnows of drug doses
@@ -225,10 +230,27 @@ if __name__=='__main__':
                 this_drug2 = np.zeros(T)
             drugs.append(this_drug)
             drugs_weightnormalized.append(this_drug2)
+            
+            if '%s_dose_inside_bodyweight_normalized'%dn in drug_res:
+                drug_inside = drug_res['%s_dose_inside_bodyweight_normalized'%dn]
+                for ii in range(drug_inside.shape[0]):
+                    for jj in range(drug_inside.shape[1]):
+                        drug_inside[ii,jj] = drug_inside[ii,jj].item()
+                drug_inside = np.c_[[dn]*len(drug_inside), drug_inside]
+                drugs_inside_weightnormalized.extend(drug_inside)
+            if '%s_dose_outside_bodyweight_normalized'%dn in drug_res:
+                drug_outside = drug_res['%s_dose_outside_bodyweight_normalized'%dn]
+                for ii in range(drug_outside.shape[0]):
+                    for jj in range(drug_outside.shape[1]):
+                        drug_outside[ii,jj] = drug_outside[ii,jj].item()
+                drug_outside = np.c_[[dn]*len(drug_outside), drug_outside]
+                drugs_outside_weightnormalized.extend(drug_outside)
         res['Dnames'] = Dnames
         res['drug'] = csr_matrix(np.array(drugs).T)
         res['drugs_weightnormalized'] = csr_matrix(np.array(drugs_weightnormalized).T)
-        
+        res['drugs_inside_weightnormalized'] = np.array(drugs_inside_weightnormalized)
+        res['drugs_outside_weightnormalized'] = np.array(drugs_outside_weightnormalized)
+        """
         ## get spec, spike
         #eeg_paths = glob.glob(os.path.join(eeg_dir, 'sid%04d'%int(sid[3:]), 'Data', 'sid*.mat'))
         master_list_id = np.where(master_list.Index==sid)[0][0]
@@ -302,6 +324,12 @@ if __name__=='__main__':
         
         # save
         sio.savemat(save_path, res)
+        """
+        aa = sio.loadmat(save_path)
+        aa['drugs_inside_weightnormalized'] = np.array(drugs_inside_weightnormalized)
+        aa['drugs_outside_weightnormalized'] = np.array(drugs_outside_weightnormalized)
+        sio.savemat(save_path, aa)
         
+    import pdb;pdb.set_trace()
     print(f'{len(sids_no_iic)} subjects does not have matching IIC labels: {sids_no_iic}')
         

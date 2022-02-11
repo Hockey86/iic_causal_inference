@@ -183,10 +183,15 @@ if __name__=='__main__':
         for drugname in drugnames:
             this_drug_df_ = drug_df_[drug_df_.drugNameSimplified==drugname].reset_index(drop=True)
             this_drug_ts = np.zeros(T)
+            outside_drugs = []
+            inside_drugs = []
             for i in range(len(this_drug_df_)):
                 if this_drug_df_.Dose_Unit.iloc[i] in ['MG', 'MG/KG', 'MCG']:
-                    start = int(round((this_drug_df_.Admin_Time.iloc[i]-eeg_start_time).total_seconds()/step_time))
-                    end = start+60//step_time
+                    this_start_time = this_drug_df_.Admin_Time.iloc[i]
+                    this_end_time = this_start_time+datetime.timedelta(seconds=60)
+                    start = int(round((this_start_time-eeg_start_time).total_seconds()/step_time))
+                    end = int(round((this_end_time-eeg_start_time).total_seconds()/step_time))
+                    #end = start+60//step_time
                     if this_drug_df_.Dose_Unit.iloc[i] == 'MCG':
                         dose = this_drug_df_.Dose_Amount.iloc[i]*60/1000.
                     elif this_drug_df_.Dose_Unit.iloc[i] == 'MG':
@@ -195,11 +200,14 @@ if __name__=='__main__':
                         dose = this_drug_df_.Dose_Amount.iloc[i]*60*bodyweights[si]
                         
                 elif this_drug_df_.Dose_Unit.iloc[i] in ['MG/HR', 'MG/KG/HR', 'MCG/KG/HR', 'MCG/KG/MIN']:
-                    start = int(round((this_drug_df_.Admin_Time.iloc[i]-eeg_start_time).total_seconds()/step_time))
+                    this_start_time = this_drug_df_.Admin_Time.iloc[i]
+                    start = int(round((this_start_time-eeg_start_time).total_seconds()/step_time))
                     if i==len(this_drug_df_)-1:
-                        end = len(this_drug_ts)
+                        end = T
+                        this_end_time = eeg_start_time + datetime.timedelta(seconds=T*step_time)
                     else:
-                        end = int(round((this_drug_df_.Admin_Time.iloc[i+1]-eeg_start_time).total_seconds()/step_time))
+                        this_end_time = this_drug_df_.Admin_Time.iloc[i+1]
+                        end = int(round((this_end_time-eeg_start_time).total_seconds()/step_time))
                     if this_drug_df_.Dose_Unit.iloc[i] in ['MG/HR']:
                         dose = this_drug_df_.Dose_Amount.iloc[i]
                     elif this_drug_df_.Dose_Unit.iloc[i] in ['MG/KG/HR']:
@@ -209,13 +217,25 @@ if __name__=='__main__':
                     elif this_drug_df_.Dose_Unit.iloc[i] in ['MCG/KG/MIN']:
                         dose = this_drug_df_.Dose_Amount.iloc[i]/1000.*60*bodyweights[si]
                     
-                start = max(0,start)
-                end = min(len(this_drug_ts),end)
-                if end>start:
-                    this_drug_ts[start:end] = dose
+                start2 = max(0,start)
+                end2 = min(len(this_drug_ts),end)
+                if end2>start2:
+                    this_drug_ts[start2:end2] = dose
+                    inside_drugs.append([this_start_time.strftime('%Y-%m-%d %H:%M:%S'), this_end_time.strftime('%Y-%m-%d %H:%M:%S'), dose])
+                else:
+                    outside_drugs.append([this_start_time.strftime('%Y-%m-%d %H:%M:%S'), this_end_time.strftime('%Y-%m-%d %H:%M:%S'), dose])
             
             res[drugname+'_dose'] = csr_matrix(this_drug_ts)
             res[drugname+'_dose_bodyweight_normalized'] = csr_matrix(this_drug_ts/bodyweights[si])
+            
+            inside_drugs = np.array(inside_drugs, dtype=object)
+            if inside_drugs.ndim==2:
+                inside_drugs[:,-1] /= bodyweights[si]
+            res[drugname+'_dose_inside_bodyweight_normalized'] = inside_drugs
+            outside_drugs = np.array(outside_drugs, dtype=object)
+            if outside_drugs.ndim==2:
+                outside_drugs[:,-1] /= bodyweights[si]
+            res[drugname+'_dose_outside_bodyweight_normalized'] = outside_drugs
             
         # fill nans to gaps
         #this_drug_ts[nan_ids] = np.nan
