@@ -46,7 +46,7 @@ def PK(W,halflife):
     D = np.zeros_like(W)
     for t in range(W.shape[0]):
         for i in range(t+1):
-            D[t,:] = D[t,:] + W[t-i,:] * np.exp(-i * 10 * np.log(2)/halflife)
+            D[t,:] = D[t,:] + W[t-i,:] * np.exp(-i * np.log(2)/halflife)
     return D
 
 def fit_PD(E,D): 
